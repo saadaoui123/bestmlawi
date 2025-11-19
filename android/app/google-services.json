@@ -1,0 +1,49 @@
+{
+  "project_info": {
+    "project_number": "555657826524",
+    "firebase_url": "https://bestmlawi-c2b5c-default-rtdb.firebaseio.com",
+    "project_id": "bestmlawi-c2b5c",
+    "storage_bucket": "bestmlawi-c2b5c.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:555657826524:android:91ff5279a41c98bcf52419",
+        "android_client_info": {
+          "package_name": "com.example.best_mlawi"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyDY6sVZeY1VQ7TnHT_lRrHahH7NfKKF0wE"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    },
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:555657826524:android:08c5c52a0c41dba4f52419",
+        "android_client_info": {
+          "package_name": "com.example.projet_best_mlewi"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyDY6sVZeY1VQ7TnHT_lRrHahH7NfKKF0wE"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
