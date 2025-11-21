@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import '../../model/user.dart' as MyUser;
-import '../../service/user.service.dart';   // contient createUser()
+import '../../service/user.service.dart'; // contient createUser()
 
 class RegisterPage extends StatefulWidget {
   const RegisterPage({super.key});
@@ -30,9 +30,9 @@ class _RegisterPageState extends State<RegisterPage> {
       // 1️⃣ Création compte Auth Firebase
       UserCredential cred = await FirebaseAuth.instance
           .createUserWithEmailAndPassword(
-        email: emailController.text.trim(),
-        password: passwordController.text,
-      );
+            email: emailController.text.trim(),
+            password: passwordController.text,
+          );
 
       final String uid = cred.user!.uid; // id user firebase
 
@@ -46,10 +46,9 @@ class _RegisterPageState extends State<RegisterPage> {
         password: passwordController.text.trim(),
         role: "client", // DEFAULT
       );
-      final UserService _userService = UserService();
+      final UserService userService = UserService();
 
-
-      await _userService.createUser(user);
+      await userService.createUser(user);
 
       // 3️⃣ Succès
       ScaffoldMessenger.of(context).showSnackBar(
@@ -58,9 +57,9 @@ class _RegisterPageState extends State<RegisterPage> {
 
       Navigator.pop(context);
     } catch (e) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text("Erreur : $e")),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text("Erreur : $e")));
     } finally {
       setState(() => loading = false);
     }
@@ -68,52 +67,64 @@ class _RegisterPageState extends State<RegisterPage> {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(title: const Text("Créer un compte Client")),
-      body: Padding(
-        padding: const EdgeInsets.all(16.0),
-        child: Form(
-          key: _formKey,
-          child: ListView(
-            children: [
-              TextFormField(
-                controller: nomController,
-                decoration: const InputDecoration(labelText: "Nom"),
-                validator: (v) => v!.isEmpty ? "Nom obligatoire" : null,
+    return Column(
+      children: [
+        AppBar(
+          title: const Text("Créer un compte Client"),
+          automaticallyImplyLeading:
+              false, // Hide back button as it's part of the main shell
+        ),
+        Expanded(
+          child: Padding(
+            padding: const EdgeInsets.all(16.0),
+            child: Form(
+              key: _formKey,
+              child: ListView(
+                children: [
+                  TextFormField(
+                    controller: nomController,
+                    decoration: const InputDecoration(labelText: "Nom"),
+                    validator: (v) => v!.isEmpty ? "Nom obligatoire" : null,
+                  ),
+                  TextFormField(
+                    controller: prenomController,
+                    decoration: const InputDecoration(labelText: "Prénom"),
+                    validator: (v) => v!.isEmpty ? "Prénom obligatoire" : null,
+                  ),
+                  TextFormField(
+                    controller: telController,
+                    decoration: const InputDecoration(labelText: "Téléphone"),
+                    keyboardType: TextInputType.number,
+                    validator: (v) =>
+                        v!.isEmpty ? "Téléphone obligatoire" : null,
+                  ),
+                  TextFormField(
+                    controller: emailController,
+                    decoration: const InputDecoration(labelText: "Email"),
+                    validator: (v) =>
+                        v!.contains("@") ? null : "Email invalide",
+                  ),
+                  TextFormField(
+                    controller: passwordController,
+                    decoration: const InputDecoration(
+                      labelText: "Mot de passe",
+                    ),
+                    obscureText: true,
+                    validator: (v) => v!.length < 6 ? "Min 6 caractères" : null,
+                  ),
+                  const SizedBox(height: 20),
+                  ElevatedButton(
+                    onPressed: loading ? null : registerClient,
+                    child: loading
+                        ? const CircularProgressIndicator(color: Colors.white)
+                        : const Text("Créer un compte"),
+                  ),
+                ],
               ),
-              TextFormField(
-                controller: prenomController,
-                decoration: const InputDecoration(labelText: "Prénom"),
-                validator: (v) => v!.isEmpty ? "Prénom obligatoire" : null,
-              ),
-              TextFormField(
-                controller: telController,
-                decoration: const InputDecoration(labelText: "Téléphone"),
-                keyboardType: TextInputType.number,
-                validator: (v) => v!.isEmpty ? "Téléphone obligatoire" : null,
-              ),
-              TextFormField(
-                controller: emailController,
-                decoration: const InputDecoration(labelText: "Email"),
-                validator: (v) => v!.contains("@") ? null : "Email invalide",
-              ),
-              TextFormField(
-                controller: passwordController,
-                decoration: const InputDecoration(labelText: "Mot de passe"),
-                obscureText: true,
-                validator: (v) => v!.length < 6 ? "Min 6 caractères" : null,
-              ),
-              const SizedBox(height: 20),
-              ElevatedButton(
-                onPressed: loading ? null : registerClient,
-                child: loading
-                    ? const CircularProgressIndicator(color: Colors.white)
-                    : const Text("Créer un compte"),
-              ),
-            ],
+            ),
           ),
         ),
-      ),
+      ],
     );
   }
 }
