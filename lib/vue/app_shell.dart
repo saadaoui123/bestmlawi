@@ -1,16 +1,17 @@
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
-import 'package:projet_best_mlewi/vue/authentification/login.page.dart';
-import 'package:projet_best_mlewi/vue/authentification/register.page.dart';
-import 'package:projet_best_mlewi/vue/profile/profile_page.dart';
-import 'package:projet_best_mlewi/vue/cart/cart_page.dart';
-import 'package:projet_best_mlewi/vue/product_detail/product_detail_page.dart';
+import 'package:google_fonts/google_fonts.dart';
+import 'package:projet_best_mlewi/service/cart_service.dart';
+import 'package:projet_best_mlewi/service/settings_service.dart';
+import 'package:projet_best_mlewi/service/auth_service.dart';
+import 'package:provider/provider.dart';
+import 'package:projet_best_mlewi/navigation/app_router.dart';
+import 'package:projet_best_mlewi/navigation/nested_navigator.dart';
+import 'package:projet_best_mlewi/vue/home/home_content_page.dart';
 import 'package:projet_best_mlewi/vue/orders/orders_page.dart';
 import 'package:projet_best_mlewi/vue/map/map_page.dart';
 import 'package:projet_best_mlewi/vue/management/management_page.dart';
-import 'package:projet_best_mlewi/vue/home/home_content_page.dart'; // Import HomeContentPage
 
-// Renommons l'ancienne HomePage en AppShell pour encapsuler la navigation principale
 class AppShell extends StatefulWidget {
   const AppShell({super.key});
 
@@ -19,119 +20,195 @@ class AppShell extends StatefulWidget {
 }
 
 class _AppShellState extends State<AppShell> {
-  int _selectedIndex = 0; // Gère l'onglet sélectionné
-  final PageController _pageController = PageController();
+  int _selectedIndex = 0;
+  PageController? _pageController;
+  bool _isManager = false;
 
-  @override
-  void dispose() {
-    _pageController.dispose();
-    super.dispose();
-  }
+  final List<Widget> _clientPages = <Widget>[
+    const HomeContentPage(),
+    const OrdersPage(),
+    const MapPage(),
+  ];
 
-  // Toutes les pages principales gérées par la BottomNavigationBar
-  final List<Widget> _mainPages = <Widget>[
-    const HomeContentPage(), // Utilise HomeContentPage pour le contenu de l'accueil
+  final List<Widget> _managerPages = <Widget>[
+    const HomeContentPage(),
     const OrdersPage(),
     const MapPage(),
     const ManagementPage(),
   ];
 
+  @override
+  void initState() {
+    super.initState();
+    _checkUserRole();
+  }
+
+  Future<void> _checkUserRole() async {
+    final authService = AuthService();
+    final isManager = await authService.isManager();
+    
+    // TEMPORARY: Force show management tab for debugging
+    setState(() {
+      _isManager = true; // Force to true for testing
+      _selectedIndex = 0; // Start on home
+      _pageController = PageController(initialPage: 0);
+    });
+    
+    // Debug: Print role to console
+    print('User is manager: $isManager');
+  }
+
+  @override
+  void dispose() {
+    _pageController?.dispose();
+    super.dispose();
+  }
+
   void _onItemTapped(int index) {
     setState(() {
       _selectedIndex = index;
-      _pageController.jumpToPage(index);
+      _pageController?.jumpToPage(index);
     });
   }
 
   @override
   Widget build(BuildContext context) {
+    final cartService = Provider.of<CartService>(context);
+    final settings = Provider.of<SettingsService>(context);
+    final l10n = settings.localizations;
+    final mainPages = _isManager ? _managerPages : _clientPages;
+
+    // Show loading while checking role
+    if (_pageController == null) {
+      return const Scaffold(
+        body: Center(child: CircularProgressIndicator()),
+      );
+    }
+
     return Scaffold(
       appBar: AppBar(
-        title: const Text('BESTMLAWI'),
+        elevation: 0,
+        backgroundColor: Colors.white,
+        title: GestureDetector(
+          onTap: () => _onItemTapped(0),
+          child: Text(
+            'BESTMLAWI',
+            style: GoogleFonts.poppins(
+              fontWeight: FontWeight.bold,
+              color: Theme.of(context).primaryColor,
+              fontSize: 24,
+            ),
+          ),
+        ),
         actions: [
+          // TEMPORARY: Admin Setup Button
           IconButton(
-            icon: const Icon(Icons.shopping_cart),
-            onPressed: () {
-              Navigator.pushNamed(context, '/cart');
-            },
+            icon: const Icon(Icons.admin_panel_settings, color: Colors.orange),
+            onPressed: () => Navigator.of(context).pushNamed('/admin/setup'),
+            tooltip: 'Configuration Admin',
           ),
-          IconButton(
-            icon: const Icon(Icons.notifications),
-            onPressed: () {
-              // Gérer l'icône de notification
-            },
+          Stack(
+            alignment: Alignment.center,
+            children: [
+              IconButton(
+                icon: const Icon(Icons.shopping_cart_outlined, color: Colors.black87),
+                onPressed: () => Navigator.of(context).pushNamed('/cart'),
+              ),
+              if (cartService.totalItems > 0)
+                Positioned(
+                  top: 8,
+                  right: 8,
+                  child: Container(
+                    padding: const EdgeInsets.all(4),
+                    decoration: const BoxDecoration(
+                      color: Colors.red,
+                      shape: BoxShape.circle,
+                    ),
+                    constraints: const BoxConstraints(
+                      minWidth: 16,
+                      minHeight: 16,
+                    ),
+                    child: Text(
+                      '${cartService.totalItems}',
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontSize: 10,
+                        fontWeight: FontWeight.bold,
+                      ),
+                      textAlign: TextAlign.center,
+                    ),
+                  ),
+                ),
+            ],
           ),
-          StreamBuilder<User?>( // Écoute les changements d'état d'authentification
+          const SizedBox(width: 8),
+          StreamBuilder<User?>(
             stream: FirebaseAuth.instance.authStateChanges(),
             builder: (context, snapshot) {
               if (snapshot.hasData) {
-                // L'utilisateur est connecté, afficher l'avatar de profil
                 return GestureDetector(
-                  onTap: () {
-                    Navigator.pushNamed(context, '/profile');
-                  },
+                  onTap: () => AppRouter.pushNamed('/profile'),
                   child: Padding(
                     padding: const EdgeInsets.only(right: 16.0),
                     child: CircleAvatar(
-                      backgroundImage: AssetImage('assets/images/user_avatar.png'), // Avatar de l'utilisateur
+                      backgroundColor: Theme.of(context).primaryColor.withOpacity(0.1),
+                      child: Icon(Icons.person, color: Theme.of(context).primaryColor),
                     ),
                   ),
                 );
               } else {
-                // L'utilisateur n'est pas connecté, afficher les options de connexion/inscription
-                return Row(
-                  children: [
-                    TextButton(
-                      onPressed: () {
-                        Navigator.pushNamed(context, '/login');
-                      },
-                      child: const Text('Se connecter', style: TextStyle(color: Colors.black)),
-                    ),
-                    TextButton(
-                      onPressed: () {
-                        Navigator.pushNamed(context, '/register');
-                      },
-                      child: const Text('S\'inscrire', style: TextStyle(color: Colors.black)), // Corrected: escape apostrophe
-                    ),
-                  ],
+                return TextButton(
+                  onPressed: () => AppRouter.pushNamed('/login'),
+                  child: Text(l10n.login),
                 );
               }
             },
           ),
         ],
       ),
-      body: PageView(
-        controller: _pageController,
-        onPageChanged: (index) {
-          setState(() {
-            _selectedIndex = index;
-          });
-        },
-        children: _mainPages,
-      ),
-      bottomNavigationBar: BottomNavigationBar(
-        items: const <BottomNavigationBarItem>[
-          BottomNavigationBarItem(
-            icon: Icon(Icons.home),
-            label: 'Accueil',
-          ),
-          BottomNavigationBarItem(
-            icon: Icon(Icons.list_alt),
-            label: 'Commandes',
-          ),
-          BottomNavigationBarItem(
-            icon: Icon(Icons.map),
-            label: 'Carte',
-          ),
-          BottomNavigationBarItem(
-            icon: Icon(Icons.settings),
-            label: 'Gestion',
-          ),
-        ],
-        currentIndex: _selectedIndex,
-        selectedItemColor: Colors.amber[800],
-        unselectedItemColor: Colors.grey,
-        onTap: _onItemTapped,
+      body: NestedNavigator(pageController: _pageController!, mainPages: mainPages),
+      bottomNavigationBar: Container(
+        decoration: BoxDecoration(
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withOpacity(0.05),
+              blurRadius: 20,
+              offset: const Offset(0, -5),
+            ),
+          ],
+        ),
+        child: BottomNavigationBar(
+          items: <BottomNavigationBarItem>[
+            BottomNavigationBarItem(
+              icon: const Icon(Icons.home_outlined),
+              activeIcon: const Icon(Icons.home),
+              label: l10n.home,
+            ),
+            BottomNavigationBarItem(
+              icon: const Icon(Icons.receipt_long_outlined),
+              activeIcon: const Icon(Icons.receipt_long),
+              label: l10n.orders,
+            ),
+            BottomNavigationBarItem(
+              icon: const Icon(Icons.map_outlined),
+              activeIcon: const Icon(Icons.map),
+              label: l10n.map,
+            ),
+            if (_isManager)
+              BottomNavigationBarItem(
+                icon: const Icon(Icons.settings_outlined),
+                activeIcon: const Icon(Icons.settings),
+                label: l10n.management,
+              ),
+          ],
+          currentIndex: _selectedIndex,
+          selectedItemColor: Theme.of(context).primaryColor,
+          unselectedItemColor: Colors.grey,
+          onTap: _onItemTapped,
+          type: BottomNavigationBarType.fixed,
+          selectedFontSize: 12,
+          unselectedFontSize: 12,
+        ),
       ),
     );
   }

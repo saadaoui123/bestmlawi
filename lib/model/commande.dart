@@ -1,6 +1,4 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:flutter/material.dart';
-import 'package:projet_best_mlewi/service/cart_service.dart'; // Import CartItem
 
 class Commande {
   String? id;
@@ -13,6 +11,8 @@ class Commande {
   double totalPrice;
   DateTime orderDate;
   String status;
+  String? topMlawiPoint; // New: To store the assigned TopMlawi point
+  String? deliveryPerson; // New: To store the assigned delivery person
 
   Commande({
     this.id,
@@ -24,7 +24,9 @@ class Commande {
     required this.items,
     required this.totalPrice,
     required this.orderDate,
-    this.status = 'Pending', // Default status
+    this.status = 'Pending',
+    this.topMlawiPoint,
+    this.deliveryPerson,
   });
 
   // Convert Commande object to a map for Firestore
@@ -39,6 +41,8 @@ class Commande {
       'totalPrice': totalPrice,
       'orderDate': Timestamp.fromDate(orderDate),
       'status': status,
+      'topMlawiPoint': topMlawiPoint, // Include new field
+      'deliveryPerson': deliveryPerson, // Include new field
     };
   }
 
@@ -56,6 +60,31 @@ class Commande {
       totalPrice: (data['totalPrice'] as num).toDouble(),
       orderDate: (data['orderDate'] as Timestamp).toDate(),
       status: data['status'] ?? 'Pending',
+      topMlawiPoint: data['topMlawiPoint'],
+      deliveryPerson: data['deliveryPerson'],
     );
   }
+
+  // Create Commande object from a map (for OrderService)
+  factory Commande.fromJson(Map<String, dynamic> data) {
+    return Commande(
+      id: data['id'],
+      userId: data['userId'],
+      clientName: data['clientName'] ?? '',
+      clientFirstName: data['clientFirstName'] ?? '',
+      clientPhone: data['clientPhone'] ?? '',
+      clientAddress: data['clientAddress'] ?? '',
+      items: List<Map<String, dynamic>>.from(data['items'] ?? []),
+      totalPrice: (data['totalPrice'] as num?)?.toDouble() ?? 0.0,
+      orderDate: data['orderDate'] is Timestamp 
+          ? (data['orderDate'] as Timestamp).toDate()
+          : DateTime.now(),
+      status: data['status'] ?? 'pending',
+      topMlawiPoint: data['topMlawiPoint'],
+      deliveryPerson: data['deliveryPerson'],
+    );
+  }
+
+  // Getter for totalAmount (alias for totalPrice)
+  double get totalAmount => totalPrice;
 }

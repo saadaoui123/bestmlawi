@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart' as fb_auth;
 import 'package:cloud_firestore/cloud_firestore.dart';
-import '../../model/user.dart';
 
 class LoginPage extends StatefulWidget {
   const LoginPage({super.key});
@@ -23,43 +22,117 @@ class _LoginPageState extends State<LoginPage> {
 
   @override
   Widget build(BuildContext context) {
-    return Column(
-      children: [
-        AppBar(
-          title: const Text("Connexion Client"),
-          automaticallyImplyLeading: false, // Hide back button as it's part of the main shell
+    return Scaffold(
+      body: Container(
+        decoration: BoxDecoration(
+          gradient: LinearGradient(
+            begin: Alignment.topCenter,
+            end: Alignment.bottomCenter,
+            colors: [
+              Theme.of(context).primaryColor.withOpacity(0.8),
+              Colors.white,
+            ],
+          ),
         ),
-        Expanded(
-          child: Padding(
-            padding: const EdgeInsets.all(16),
-            child: Form(
-              key: _formKey,
-              child: Column(
-                children: [
-                  TextFormField(
-                    controller: _emailController,
-                    decoration: const InputDecoration(labelText: "Email"),
-                    validator: (value) => value!.isEmpty ? "Entrez un email" : null,
-                  ),
-                  TextFormField(
-                    controller: _passwordController,
-                    decoration: const InputDecoration(labelText: "Mot de passe"),
-                    obscureText: true,
-                    validator: (value) => value!.isEmpty ? "Entrez le mot de passe" : null,
-                  ),
-                  const SizedBox(height: 20),
-                  _loading
-                      ? const CircularProgressIndicator()
-                      : ElevatedButton(
-                          onPressed: _login,
-                          child: const Text("Se connecter"),
+        child: SafeArea(
+          child: Center(
+            child: SingleChildScrollView(
+              padding: const EdgeInsets.all(24),
+              child: Card(
+                elevation: 8,
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+                child: Padding(
+                  padding: const EdgeInsets.all(32),
+                  child: Form(
+                    key: _formKey,
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Icon(
+                          Icons.restaurant_menu,
+                          size: 64,
+                          color: Theme.of(context).primaryColor,
                         ),
-                ],
+                        const SizedBox(height: 16),
+                        Text(
+                          "Bienvenue",
+                          style: Theme.of(context).textTheme.headlineMedium?.copyWith(
+                                fontWeight: FontWeight.bold,
+                                color: Colors.black87,
+                              ),
+                        ),
+                        const SizedBox(height: 8),
+                        Text(
+                          "Connectez-vous pour commander",
+                          style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                                color: Colors.grey[600],
+                              ),
+                        ),
+                        const SizedBox(height: 32),
+                        TextFormField(
+                          controller: _emailController,
+                          decoration: InputDecoration(
+                            labelText: "Email",
+                            prefixIcon: const Icon(Icons.email_outlined),
+                            border: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(12),
+                            ),
+                            filled: true,
+                            fillColor: Colors.grey[50],
+                          ),
+                          validator: (value) => value!.isEmpty ? "Entrez un email" : null,
+                        ),
+                        const SizedBox(height: 16),
+                        TextFormField(
+                          controller: _passwordController,
+                          decoration: InputDecoration(
+                            labelText: "Mot de passe",
+                            prefixIcon: const Icon(Icons.lock_outline),
+                            border: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(12),
+                            ),
+                            filled: true,
+                            fillColor: Colors.grey[50],
+                          ),
+                          obscureText: true,
+                          validator: (value) => value!.isEmpty ? "Entrez le mot de passe" : null,
+                        ),
+                        const SizedBox(height: 24),
+                        SizedBox(
+                          width: double.infinity,
+                          height: 50,
+                          child: _loading
+                              ? const Center(child: CircularProgressIndicator())
+                              : ElevatedButton(
+                                  onPressed: _login,
+                                  style: ElevatedButton.styleFrom(
+                                    shape: RoundedRectangleBorder(
+                                      borderRadius: BorderRadius.circular(12),
+                                    ),
+                                    elevation: 2,
+                                  ),
+                                  child: const Text(
+                                    "Se connecter",
+                                    style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+                                  ),
+                                ),
+                        ),
+                        const SizedBox(height: 16),
+                        TextButton(
+                          onPressed: () {
+                            Navigator.pushNamed(context, '/register');
+                          },
+                          child: const Text("Pas encore de compte ? S'inscrire"),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
               ),
             ),
           ),
         ),
-      ],
+      ),
     );
   }
 
@@ -69,53 +142,56 @@ class _LoginPageState extends State<LoginPage> {
     setState(() => _loading = true);
 
     try {
-      // 1️⃣ Connexion Auth
-      final fb_auth.UserCredential cred =
-          await _auth.signInWithEmailAndPassword(
+      // Sign in with Firebase Auth
+      final userCredential = await _auth.signInWithEmailAndPassword(
         email: _emailController.text.trim(),
         password: _passwordController.text.trim(),
       );
 
-      final String uid = cred.user!.uid;
+      // Get user role from Firestore
+      final userDoc = await _db.collection('users').doc(userCredential.user!.uid).get();
+      
+      if (mounted) {
+        setState(() => _loading = false);
 
-      // 2️⃣ Récupérer utilisateur Firestore
-      DocumentSnapshot doc =
-          await _db.collection(User.collection).doc(uid).get();
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text("Connexion réussie !")),
+        );
 
-      if (!doc.exists) {
-        throw Exception("Aucun utilisateur trouvé dans Firestore");
+        // Check user role and navigate accordingly
+        if (userDoc.exists) {
+          final role = userDoc.data()?['role'] ?? 'client';
+          
+          if (role == 'gerant' || role == 'manager') {
+            // Manager goes to home (AppShell will show management tab automatically)
+            Navigator.of(context).pushNamedAndRemoveUntil('/', (route) => false);
+          } else {
+            // Client goes to home
+            Navigator.of(context).pushNamedAndRemoveUntil('/', (route) => false);
+          }
+        } else {
+          // No user doc, default to home
+          Navigator.of(context).pushNamedAndRemoveUntil('/', (route) => false);
+        }
       }
-
-      final data = doc.data() as Map<String, dynamic>;
-
-      // 3️⃣ Vérifier rôle
-      if (data["role"] != "client") {
-        // Déconnexion immédiate si ce n’est pas un client
-        await _auth.signOut();
-        throw Exception("Ce compte n'est pas autorisé (pas un client)");
-      }
-
-      setState(() => _loading = false);
-
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text("Connexion réussie !")),
-      );
-
-      // 4️⃣ Redirection vers page client
-      Navigator.pushReplacementNamed(context, "/client/home");
     } on fb_auth.FirebaseAuthException catch (e) {
-      setState(() => _loading = false);
+      if (mounted) {
+        setState(() => _loading = false);
 
-      String msg = "Erreur de connexion";
-      if (e.code == "user-not-found") msg = "Email incorrect";
-      if (e.code == "wrong-password") msg = "Mot de passe incorrect";
+        String msg = "Erreur de connexion";
+        if (e.code == "user-not-found") msg = "Email incorrect";
+        if (e.code == "wrong-password") msg = "Mot de passe incorrect";
+        if (e.code == "invalid-credential") msg = "Email ou mot de passe incorrect";
 
-      ScaffoldMessenger.of(context)
-          .showSnackBar(SnackBar(content: Text(msg)));
+        ScaffoldMessenger.of(context)
+            .showSnackBar(SnackBar(content: Text(msg)));
+      }
     } catch (e) {
-      setState(() => _loading = false);
-      ScaffoldMessenger.of(context)
-          .showSnackBar(SnackBar(content: Text(e.toString())));
+      if (mounted) {
+        setState(() => _loading = false);
+        ScaffoldMessenger.of(context)
+            .showSnackBar(SnackBar(content: Text("Erreur: ${e.toString()}")));
+      }
     }
   }
 }

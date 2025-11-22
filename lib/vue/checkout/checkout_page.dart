@@ -75,11 +75,14 @@ class _CheckoutPageState extends State<CheckoutPage> {
 
       cartService.clearCart(); // Clear cart after successful order
 
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Votre commande a été passée avec succès!')),
-      );
-      // Navigate to the OrdersPage after successful order
-      Navigator.pushReplacementNamed(context, '/orders'); // Assuming you have an /orders route
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Votre commande a été passée avec succès!')),
+        );
+        
+        // Navigate back to home (AppShell root)
+        Navigator.of(context).pushNamedAndRemoveUntil('/', (route) => false);
+      }
     } catch (e) {
       print('Error placing order: $e');
       ScaffoldMessenger.of(context).showSnackBar(

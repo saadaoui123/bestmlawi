@@ -30,9 +30,10 @@ class _OrdersPageState extends State<OrdersPage> {
                 ? _firestore
                     .collection('orders')
                     .where('userId', isEqualTo: currentUser.uid)
-                    .orderBy('orderDate', descending: true)
                     .snapshots()
-                : _firestore.collection('orders').orderBy('orderDate', descending: true).snapshots(),
+                : _firestore
+                    .collection('orders')
+                    .snapshots(),
             builder: (context, snapshot) {
               if (snapshot.connectionState == ConnectionState.waiting) {
                 return const Center(child: CircularProgressIndicator());
@@ -44,7 +45,11 @@ class _OrdersPageState extends State<OrdersPage> {
                 return const Center(child: Text('Aucune commande trouvée.'));
               }
 
-              final orders = snapshot.data!.docs.map((doc) => Commande.fromFirestore(doc)).toList();
+              // Get orders and sort them in memory
+              final orders = snapshot.data!.docs
+                  .map((doc) => Commande.fromFirestore(doc))
+                  .toList()
+                ..sort((a, b) => b.orderDate.compareTo(a.orderDate));
 
               return ListView.builder(
                 padding: const EdgeInsets.all(16.0),
