@@ -67,7 +67,7 @@ class _CheckoutPageState extends State<CheckoutPage> {
       items: orderItems,
       totalPrice: total,
       orderDate: DateTime.now(),
-      status: 'Pending',
+      status: 'pending',
     );
 
     try {

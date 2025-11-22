@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 
@@ -37,5 +38,34 @@ class AuthService {
   // Sign out
   Future<void> signOut() async {
     await _auth.signOut();
+  }
+
+  // Create account (for manager to create other users without logging out)
+  Future<String?> createAccount(String email, String password) async {
+    FirebaseApp? secondaryApp;
+    try {
+      // Initialize a secondary app
+      secondaryApp = await Firebase.initializeApp(
+        name: 'SecondaryApp',
+        options: Firebase.app().options,
+      );
+
+      // Get auth instance for secondary app
+      final secondaryAuth = FirebaseAuth.instanceFor(app: secondaryApp);
+
+      // Create user
+      final userCredential = await secondaryAuth.createUserWithEmailAndPassword(
+        email: email,
+        password: password,
+      );
+
+      return userCredential.user?.uid;
+    } catch (e) {
+      print('Error creating account: $e');
+      rethrow;
+    } finally {
+      // Clean up
+      await secondaryApp?.delete();
+    }
   }
 }

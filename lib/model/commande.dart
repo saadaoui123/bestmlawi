@@ -11,8 +11,8 @@ class Commande {
   double totalPrice;
   DateTime orderDate;
   String status;
-  String? topMlawiPoint; // New: To store the assigned TopMlawi point
-  String? deliveryPerson; // New: To store the assigned delivery person
+  String? topMlawiId; // To store the assigned TopMlawi point ID
+  String? livreurId; // To store the assigned delivery person ID
 
   Commande({
     this.id,
@@ -25,8 +25,8 @@ class Commande {
     required this.totalPrice,
     required this.orderDate,
     this.status = 'Pending',
-    this.topMlawiPoint,
-    this.deliveryPerson,
+    this.topMlawiId,
+    this.livreurId,
   });
 
   // Convert Commande object to a map for Firestore
@@ -41,8 +41,8 @@ class Commande {
       'totalPrice': totalPrice,
       'orderDate': Timestamp.fromDate(orderDate),
       'status': status,
-      'topMlawiPoint': topMlawiPoint, // Include new field
-      'deliveryPerson': deliveryPerson, // Include new field
+      'topMlawiId': topMlawiId,
+      'livreurId': livreurId,
     };
   }
 
@@ -60,8 +60,8 @@ class Commande {
       totalPrice: (data['totalPrice'] as num).toDouble(),
       orderDate: (data['orderDate'] as Timestamp).toDate(),
       status: data['status'] ?? 'Pending',
-      topMlawiPoint: data['topMlawiPoint'],
-      deliveryPerson: data['deliveryPerson'],
+      topMlawiId: data['topMlawiId'],
+      livreurId: data['livreurId'],
     );
   }
 
@@ -80,8 +80,8 @@ class Commande {
           ? (data['orderDate'] as Timestamp).toDate()
           : DateTime.now(),
       status: data['status'] ?? 'pending',
-      topMlawiPoint: data['topMlawiPoint'],
-      deliveryPerson: data['deliveryPerson'],
+      topMlawiId: data['topMlawiId'],
+      livreurId: data['livreurId'],
     );
   }
 

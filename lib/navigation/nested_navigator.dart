@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+import 'package:projet_best_mlewi/vue/management/management_page.dart';
+import 'package:projet_best_mlewi/navigation/manager_guard.dart';
 import 'package:projet_best_mlewi/vue/authentification/login.page.dart';
 import 'package:projet_best_mlewi/vue/authentification/register.page.dart';
 import 'package:projet_best_mlewi/vue/profile/profile_page.dart';
@@ -101,6 +103,9 @@ class _NestedNavigatorState extends State<NestedNavigator> {
           case '/order_detail':
             final order = settings.arguments as Commande;
             page = OrderDetailPage(order: order);
+            break;
+          case '/management':
+            page = ManagerGuard(child: const ManagementPage());
             break;
           case '/blog':
             page = const BlogListPage();

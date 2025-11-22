@@ -10,7 +10,10 @@ import 'package:projet_best_mlewi/service/top_mlawi_service.dart';
 import 'package:projet_best_mlewi/service/livreur_service.dart';
 import 'package:projet_best_mlewi/theme/app_theme.dart';
 import 'package:projet_best_mlewi/navigation/route_generator.dart';
+import 'package:projet_best_mlewi/service/auth_service.dart';
 import 'firebase_options.dart';
+
+import 'package:projet_best_mlewi/service/user.service.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -32,6 +35,8 @@ class MyApp extends StatelessWidget {
         Provider(create: (_) => OrderService()),
         ChangeNotifierProvider(create: (_) => TopMlawiService()),
         ChangeNotifierProvider(create: (_) => LivreurService()),
+        ChangeNotifierProvider(create: (_) => UserService()),
+        Provider(create: (_) => AuthService()),
       ],
       child: Consumer<SettingsService>(
         builder: (context, settings, child) {

@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:projet_best_mlewi/service/cart_service.dart';
+import 'package:projet_best_mlewi/service/product_service.dart';
+import 'package:projet_best_mlewi/model/product.dart';
 import 'package:provider/provider.dart';
 
 class HomeContentPage extends StatefulWidget {
@@ -10,50 +12,10 @@ class HomeContentPage extends StatefulWidget {
 }
 
 class _HomeContentPageState extends State<HomeContentPage> {
-  final List<Map<String, dynamic>> menuItems = [
-    {
-      'name': 'Tajine de Poulet aux Citrons Confits',
-      'description': 'Un plat marocain classique avec poulet',
-      'price': 6.5,
-      'image': 'assets/images/tajine.png',
-      'category': 'Populaire',
-    },
-    {
-      'name': 'Couscous Royal',
-      'description': 'Couscous traditionnel avec agneau, poulet,',
-      'price': 8.8,
-      'image': 'assets/images/couscous.png',
-      'category': 'Populaire',
-    },
-    {
-      'name': 'Salade Composée',
-      'description': 'Salade fraîcheur aux légumes de saison',
-      'price': 4.0,
-      'image': 'assets/images/salad.png',
-      'category': 'Végétarien',
-    },
-    {
-      'name': 'Pizza Végétarienne',
-      'description': 'Délicieuse pizza aux légumes frais',
-      'price': 7.5,
-      'image': 'assets/images/pizza.png',
-      'category': 'Végétarien',
-    },
-    {
-      'name': 'Soupe du Jour',
-      'description': 'Soupe maison avec des ingrédients frais',
-      'price': 3.0,
-      'image': 'assets/images/soup.png',
-      'category': 'Nouveautés',
-    },
-  ];
-
-  List<Map<String, dynamic>> _getMenuItemsByCategory(String category) {
-    return menuItems.where((item) => item['category'] == category).toList();
-  }
-
   @override
   Widget build(BuildContext context) {
+    final productService = Provider.of<ProductService>(context);
+
     return SingleChildScrollView(
       child: Column(
         children: [
@@ -70,6 +32,9 @@ class _HomeContentPageState extends State<HomeContentPage> {
                 filled: true,
                 fillColor: Colors.grey[200],
               ),
+              onChanged: (value) {
+                // TODO: Implement search
+              },
             ),
           ),
           Padding(
@@ -92,8 +57,8 @@ class _HomeContentPageState extends State<HomeContentPage> {
               ),
             ),
           ),
-          Padding(
-            padding: const EdgeInsets.all(16.0),
+          const Padding(
+            padding: EdgeInsets.all(16.0),
             child: Align(
               alignment: Alignment.centerLeft,
               child: Text(
@@ -103,27 +68,44 @@ class _HomeContentPageState extends State<HomeContentPage> {
             ),
           ),
           DefaultTabController(
-            length: 3,
+            length: 4, // Added 'Plats' as default category
             child: Column(
               children: [
                 TabBar(
                   indicatorColor: Colors.amber[800],
                   labelColor: Colors.amber[800],
                   unselectedLabelColor: Colors.grey,
+                  isScrollable: true,
                   tabs: const [
-                    Tab(text: 'Populaire'),
-                    Tab(text: 'Nouveautés'),
-                    Tab(text: 'Végétarien'),
+                    Tab(text: 'Plats'),
+                    Tab(text: 'Entrées'),
+                    Tab(text: 'Soupes'),
+                    Tab(text: 'Desserts'),
                   ],
                 ),
                 SizedBox(
                   height: 500,
-                  child: TabBarView(
-                    children: [
-                      _buildMenuItemGrid(_getMenuItemsByCategory('Populaire')),
-                      _buildMenuItemGrid(_getMenuItemsByCategory('Nouveautés')),
-                      _buildMenuItemGrid(_getMenuItemsByCategory('Végétarien')),
-                    ],
+                  child: StreamBuilder<List<Product>>(
+                    stream: productService.getAllProducts(),
+                    builder: (context, snapshot) {
+                      if (snapshot.connectionState == ConnectionState.waiting) {
+                        return const Center(child: CircularProgressIndicator());
+                      }
+                      if (snapshot.hasError) {
+                        return Center(child: Text('Erreur: ${snapshot.error}'));
+                      }
+
+                      final allProducts = snapshot.data ?? [];
+
+                      return TabBarView(
+                        children: [
+                          _buildMenuItemGrid(allProducts.where((p) => p.category == 'Plats').toList()),
+                          _buildMenuItemGrid(allProducts.where((p) => p.category == 'Entrées').toList()),
+                          _buildMenuItemGrid(allProducts.where((p) => p.category == 'Soupes').toList()),
+                          _buildMenuItemGrid(allProducts.where((p) => p.category == 'Desserts').toList()),
+                        ],
+                      );
+                    },
                   ),
                 ),
               ],
@@ -134,7 +116,10 @@ class _HomeContentPageState extends State<HomeContentPage> {
     );
   }
 
-  Widget _buildMenuItemGrid(List<Map<String, dynamic>> items) {
+  Widget _buildMenuItemGrid(List<Product> items) {
+    if (items.isEmpty) {
+      return const Center(child: Text('Aucun produit dans cette catégorie'));
+    }
     return GridView.builder(
       padding: const EdgeInsets.all(16.0),
       gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
@@ -145,13 +130,13 @@ class _HomeContentPageState extends State<HomeContentPage> {
       ),
       itemCount: items.length,
       itemBuilder: (context, index) {
-        final item = items[index];
+        final product = items[index];
         return GestureDetector(
           onTap: () {
             Navigator.pushNamed(
               context,
               '/product_detail',
-              arguments: item,
+              arguments: product.toMap(), // Passing map to keep compatibility with existing detail page if it expects map
             );
           },
           child: Card(
@@ -163,11 +148,19 @@ class _HomeContentPageState extends State<HomeContentPage> {
                 Expanded(
                   child: ClipRRect(
                     borderRadius: const BorderRadius.vertical(top: Radius.circular(12)),
-                    child: Image.asset(
-                      item['image'] ?? 'assets/images/placeholder.png',
-                      fit: BoxFit.cover,
-                      width: double.infinity,
-                    ),
+                    child: product.imageUrl.isNotEmpty
+                        ? Image.network(
+                            product.imageUrl,
+                            fit: BoxFit.cover,
+                            width: double.infinity,
+                            errorBuilder: (context, error, stackTrace) => 
+                                Image.asset('assets/images/placeholder.png', fit: BoxFit.cover),
+                          )
+                        : Image.asset(
+                            'assets/images/placeholder.png',
+                            fit: BoxFit.cover,
+                            width: double.infinity,
+                          ),
                   ),
                 ),
                 Padding(
@@ -176,14 +169,14 @@ class _HomeContentPageState extends State<HomeContentPage> {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(
-                        item['name'],
+                        product.name,
                         style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
                       ),
                       const SizedBox(height: 4),
                       Text(
-                        item['description'],
+                        product.description,
                         style: const TextStyle(fontSize: 12, color: Colors.grey),
                         maxLines: 2,
                         overflow: TextOverflow.ellipsis,
@@ -193,14 +186,14 @@ class _HomeContentPageState extends State<HomeContentPage> {
                         mainAxisAlignment: MainAxisAlignment.spaceBetween,
                         children: [
                           Text(
-                            '${item['price']} DT',
+                            '${product.price.toStringAsFixed(2)} DT',
                             style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16, color: Colors.amber[800]),
                           ),
                           ElevatedButton(
                             onPressed: () {
-                              Provider.of<CartService>(context, listen: false).addItem(item);
+                              Provider.of<CartService>(context, listen: false).addItem(product.toMap());
                               ScaffoldMessenger.of(context).showSnackBar(
-                                SnackBar(content: Text('${item['name']} ajouté au panier!')),
+                                SnackBar(content: Text('${product.name} ajouté au panier!')),
                               );
                             },
                             style: ElevatedButton.styleFrom(

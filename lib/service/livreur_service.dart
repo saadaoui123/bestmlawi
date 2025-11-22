@@ -77,9 +77,27 @@ class LivreurService extends ChangeNotifier {
     notifyListeners();
   }
 
-  // Create a new driver (for testing)
+  // Create a new driver
   Future<void> createLivreur(Livreur livreur) async {
     await _firestore.collection('livreurs').add(livreur.toMap());
+    notifyListeners();
+  }
+
+  // Create a new driver with specific ID
+  Future<void> createLivreurWithId(Livreur livreur, String id) async {
+    await _firestore.collection('livreurs').doc(id).set(livreur.toMap());
+    notifyListeners();
+  }
+
+  // Update driver
+  Future<void> updateLivreur(Livreur livreur) async {
+    await _firestore.collection('livreurs').doc(livreur.id).update(livreur.toMap());
+    notifyListeners();
+  }
+
+  // Delete driver
+  Future<void> deleteLivreur(String livreurId) async {
+    await _firestore.collection('livreurs').doc(livreurId).delete();
     notifyListeners();
   }
 }

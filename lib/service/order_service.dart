@@ -72,7 +72,7 @@ class OrderService {
   Stream<List<Commande>> getPendingOrders() {
     return _firestore
         .collection('orders')
-        .where('status', whereIn: ['pending', 'confirmed'])
+        .where('status', whereIn: ['pending', 'confirmed', 'Pending', 'Confirmed'])
         .snapshots()
         .map((snapshot) {
       return snapshot.docs.map((doc) {
@@ -113,6 +113,21 @@ class OrderService {
           'id': doc.id,
         });
       }).toList();
+    });
+  }
+  // Mark order as picked up (delivering)
+  Future<void> markOrderPickedUp(String orderId) async {
+    await _firestore.collection('orders').doc(orderId).update({
+      'status': 'delivering',
+      'pickedUpAt': FieldValue.serverTimestamp(),
+    });
+  }
+
+  // Mark order as delivered
+  Future<void> markOrderDelivered(String orderId) async {
+    await _firestore.collection('orders').doc(orderId).update({
+      'status': 'delivered',
+      'deliveredAt': FieldValue.serverTimestamp(),
     });
   }
 }
