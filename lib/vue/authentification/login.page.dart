@@ -57,16 +57,16 @@ class _LoginPageState extends State<LoginPage> {
                         Text(
                           "Bienvenue",
                           style: Theme.of(context).textTheme.headlineMedium?.copyWith(
-                                fontWeight: FontWeight.bold,
-                                color: Colors.black87,
-                              ),
+                            fontWeight: FontWeight.bold,
+                            color: Colors.black87,
+                          ),
                         ),
                         const SizedBox(height: 8),
                         Text(
                           "Connectez-vous pour commander",
                           style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                                color: Colors.grey[600],
-                              ),
+                            color: Colors.grey[600],
+                          ),
                         ),
                         const SizedBox(height: 32),
                         TextFormField(
@@ -104,18 +104,18 @@ class _LoginPageState extends State<LoginPage> {
                           child: _loading
                               ? const Center(child: CircularProgressIndicator())
                               : ElevatedButton(
-                                  onPressed: _login,
-                                  style: ElevatedButton.styleFrom(
-                                    shape: RoundedRectangleBorder(
-                                      borderRadius: BorderRadius.circular(12),
-                                    ),
-                                    elevation: 2,
-                                  ),
-                                  child: const Text(
-                                    "Se connecter",
-                                    style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
-                                  ),
-                                ),
+                            onPressed: _login,
+                            style: ElevatedButton.styleFrom(
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(12),
+                              ),
+                              elevation: 2,
+                            ),
+                            child: const Text(
+                              "Se connecter",
+                              style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+                            ),
+                          ),
                         ),
                         const SizedBox(height: 16),
                         TextButton(
@@ -142,15 +142,52 @@ class _LoginPageState extends State<LoginPage> {
     setState(() => _loading = true);
 
     try {
-      // Sign in with Firebase Auth
+      // 1. Connexion avec Firebase Auth
       final userCredential = await _auth.signInWithEmailAndPassword(
         email: _emailController.text.trim(),
         password: _passwordController.text.trim(),
       );
 
-      // Get user role from Firestore
-      final userDoc = await _db.collection('users').doc(userCredential.user!.uid).get();
-      
+      final user = userCredential.user;
+
+      if (user != null) {
+        // Recharger l'utilisateur pour vérifier le statut de l'email
+        await user.reload();
+        if (!user.emailVerified) {
+          // Si l'email n'est pas vérifié, on affiche un dialogue et on arrête
+          if (mounted) {
+            setState(() => _loading = false);
+            await showDialog(
+              context: context,
+              builder: (context) => AlertDialog(
+                title: const Text("Email non vérifié"),
+                content: const Text(
+                    "Veuillez consulter votre boîte mail pour confirmer votre compte. Souhaitez-vous renvoyer l'email de confirmation ?"),
+                actions: [
+                  TextButton(
+                    child: const Text("Annuler"),
+                    onPressed: () => Navigator.of(context).pop(),
+                  ),
+                  TextButton(
+                    child: const Text("Renvoyer"),
+                    onPressed: () {
+                      user.sendEmailVerification();
+                      Navigator.of(context).pop();
+                      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+                          content: Text("E-mail de confirmation renvoyé !")));
+                    },
+                  ),
+                ],
+              ),
+            );
+          }
+          return; // Stoppe la fonction ici
+        }
+      }
+
+      // 2. Obtenir le rôle de l'utilisateur depuis Firestore
+      final userDoc = await _db.collection('users').doc(user!.uid).get();
+
       if (mounted) {
         setState(() => _loading = false);
 
@@ -158,19 +195,39 @@ class _LoginPageState extends State<LoginPage> {
           const SnackBar(content: Text("Connexion réussie !")),
         );
 
-        // Check user role and navigate accordingly
+        // 3. Vérifier le rôle et naviguer en conséquence
         if (userDoc.exists) {
           final role = userDoc.data()?['role'] ?? 'client';
-          
-          if (role == 'gerant' || role == 'manager') {
-            // Manager goes to home (AppShell will show management tab automatically)
-            Navigator.of(context).pushNamedAndRemoveUntil('/', (route) => false);
-          } else {
-            // Client goes to home
-            Navigator.of(context).pushNamedAndRemoveUntil('/', (route) => false);
+
+          // --- DÉBUT DES MODIFICATIONS ---
+          switch (role) {
+            case 'manager':
+            case 'gerant':
+              print('Redirecting to / (manager)');
+              Navigator.of(context).pushNamedAndRemoveUntil('/', (route) => false);
+              break;
+            case 'livreur':
+              print('Redirecting to /livreur_dashboard');
+              Navigator.of(context).pushNamedAndRemoveUntil('/livreur_dashboard', (route) => false);
+              break;
+            case 'collaborateur':
+            // MODIFIÉ : Redirige vers son propre dashboard
+              print('Redirecting to /collaborateur_dashboard');
+              Navigator.of(context).pushNamedAndRemoveUntil('/collaborateur_dashboard', (route) => false);
+              break;
+            case 'coordinateur':
+              print('Redirecting to /coordinateur_dashboard');
+              Navigator.of(context).pushNamedAndRemoveUntil('/coordinateur_dashboard', (route) => false);
+              break;
+            default: // client
+              print('Redirecting to / (client)');
+              Navigator.of(context).pushNamedAndRemoveUntil('/', (route) => false);
           }
+          // --- FIN DES MODIFICATIONS ---
+
         } else {
-          // No user doc, default to home
+          // Si aucun document utilisateur n'est trouvé, on le traite comme un client par défaut
+          print('No user document found, redirecting to /');
           Navigator.of(context).pushNamedAndRemoveUntil('/', (route) => false);
         }
       }
@@ -179,9 +236,9 @@ class _LoginPageState extends State<LoginPage> {
         setState(() => _loading = false);
 
         String msg = "Erreur de connexion";
-        if (e.code == "user-not-found") msg = "Email incorrect";
-        if (e.code == "wrong-password") msg = "Mot de passe incorrect";
-        if (e.code == "invalid-credential") msg = "Email ou mot de passe incorrect";
+        if (e.code == "user-not-found" || e.code == "wrong-password" || e.code == "invalid-credential") {
+          msg = "Email ou mot de passe incorrect";
+        }
 
         ScaffoldMessenger.of(context)
             .showSnackBar(SnackBar(content: Text(msg)));

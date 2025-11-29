@@ -12,6 +12,56 @@ class HomeContentPage extends StatefulWidget {
 }
 
 class _HomeContentPageState extends State<HomeContentPage> {
+  // 1. Variables pour gérer l'état de la recherche
+  final TextEditingController _searchController = TextEditingController();
+  List<Product> _allProducts = [];
+  List<Product> _filteredProducts = [];
+  String _searchQuery = '';
+
+  @override
+  void initState() {
+    super.initState();
+    // Écouter les changements du contrôleur de recherche
+    _searchController.addListener(() {
+      if (_searchQuery != _searchController.text) {
+        setState(() {
+          _searchQuery = _searchController.text;
+        });
+      }
+    });
+  }
+
+  @override
+  void dispose() {
+    _searchController.dispose();
+    super.dispose();
+  }
+
+  // 2. Méthode pour obtenir la liste filtrée (plus propre sans état séparé)
+  List<Product> _getFilteredProducts() {
+    if (_searchQuery.isEmpty) {
+      return _allProducts;
+    } else {
+      return _allProducts
+          .where((product) =>
+      product.name.toLowerCase().contains(_searchQuery.toLowerCase()) ||
+          product.description.toLowerCase().contains(_searchQuery.toLowerCase()))
+          .toList();
+    }
+  }
+
+  // Helper method to validate image URLs
+  bool _isValidImageUrl(String url) {
+    if (url.isEmpty) return false;
+    // Reject Google search URLs and other invalid URLs
+    if (url.contains('google.com/search')) return false;
+    // Accept Firebase Storage URLs and common image hosting
+    if (url.startsWith('https://firebasestorage.googleapis.com/')) return true;
+    // Accept URLs ending with image extensions
+    final imageExtensions = ['.jpg', '.jpeg', '.png', '.gif', '.webp', '.bmp'];
+    return imageExtensions.any((ext) => url.toLowerCase().endsWith(ext));
+  }
+
   @override
   Widget build(BuildContext context) {
     final productService = Provider.of<ProductService>(context);
@@ -22,9 +72,18 @@ class _HomeContentPageState extends State<HomeContentPage> {
           Padding(
             padding: const EdgeInsets.all(16.0),
             child: TextField(
+              controller: _searchController, // Utilisation du contrôleur
               decoration: InputDecoration(
                 hintText: 'Rechercher des plats...',
                 prefixIcon: const Icon(Icons.search),
+                suffixIcon: _searchQuery.isNotEmpty
+                    ? IconButton(
+                  icon: const Icon(Icons.clear),
+                  onPressed: () {
+                    _searchController.clear();
+                  },
+                )
+                    : null,
                 border: OutlineInputBorder(
                   borderRadius: BorderRadius.circular(8.0),
                   borderSide: BorderSide.none,
@@ -32,9 +91,6 @@ class _HomeContentPageState extends State<HomeContentPage> {
                 filled: true,
                 fillColor: Colors.grey[200],
               ),
-              onChanged: (value) {
-                // TODO: Implement search
-              },
             ),
           ),
           Padding(
@@ -68,7 +124,7 @@ class _HomeContentPageState extends State<HomeContentPage> {
             ),
           ),
           DefaultTabController(
-            length: 4, // Added 'Plats' as default category
+            length: 4,
             child: Column(
               children: [
                 TabBar(
@@ -95,14 +151,21 @@ class _HomeContentPageState extends State<HomeContentPage> {
                         return Center(child: Text('Erreur: ${snapshot.error}'));
                       }
 
-                      final allProducts = snapshot.data ?? [];
+                      _allProducts = snapshot.data ?? [];
+                      final filteredList = _getFilteredProducts();
+
+                      if (_searchQuery.isNotEmpty && filteredList.isEmpty) {
+                        return const Center(
+                          child: Text('Aucun plat ne correspond à votre recherche.'),
+                        );
+                      }
 
                       return TabBarView(
                         children: [
-                          _buildMenuItemGrid(allProducts.where((p) => p.category == 'Plats').toList()),
-                          _buildMenuItemGrid(allProducts.where((p) => p.category == 'Entrées').toList()),
-                          _buildMenuItemGrid(allProducts.where((p) => p.category == 'Soupes').toList()),
-                          _buildMenuItemGrid(allProducts.where((p) => p.category == 'Desserts').toList()),
+                          _buildMenuItemGrid(filteredList.where((p) => p.category == 'Plats').toList()),
+                          _buildMenuItemGrid(filteredList.where((p) => p.category == 'Entrées').toList()),
+                          _buildMenuItemGrid(filteredList.where((p) => p.category == 'Soupes').toList()),
+                          _buildMenuItemGrid(filteredList.where((p) => p.category == 'Desserts').toList()),
                         ],
                       );
                     },
@@ -118,7 +181,7 @@ class _HomeContentPageState extends State<HomeContentPage> {
 
   Widget _buildMenuItemGrid(List<Product> items) {
     if (items.isEmpty) {
-      return const Center(child: Text('Aucun produit dans cette catégorie'));
+      return Center(child: Text(_searchQuery.isEmpty ? 'Aucun produit dans cette catégorie' : ''));
     }
     return GridView.builder(
       padding: const EdgeInsets.all(16.0),
@@ -136,7 +199,7 @@ class _HomeContentPageState extends State<HomeContentPage> {
             Navigator.pushNamed(
               context,
               '/product_detail',
-              arguments: product.toMap(), // Passing map to keep compatibility with existing detail page if it expects map
+              arguments: product.toMap(),
             );
           },
           child: Card(
@@ -148,19 +211,28 @@ class _HomeContentPageState extends State<HomeContentPage> {
                 Expanded(
                   child: ClipRRect(
                     borderRadius: const BorderRadius.vertical(top: Radius.circular(12)),
-                    child: product.imageUrl.isNotEmpty
+                    child: product.imageUrl.isNotEmpty && _isValidImageUrl(product.imageUrl)
                         ? Image.network(
-                            product.imageUrl,
-                            fit: BoxFit.cover,
-                            width: double.infinity,
-                            errorBuilder: (context, error, stackTrace) => 
-                                Image.asset('assets/images/placeholder.png', fit: BoxFit.cover),
-                          )
-                        : Image.asset(
-                            'assets/images/placeholder.png',
-                            fit: BoxFit.cover,
-                            width: double.infinity,
+                      product.imageUrl,
+                      fit: BoxFit.cover,
+                      width: double.infinity,
+                      errorBuilder: (context, error, stackTrace) =>
+                          Container(
+                            color: Colors.grey[200],
+                            child: const Icon(Icons.restaurant, size: 50, color: Colors.grey),
                           ),
+                      loadingBuilder: (context, child, loadingProgress) {
+                        if (loadingProgress == null) return child;
+                        return Container(
+                          color: Colors.grey[200],
+                          child: const Center(child: CircularProgressIndicator()),
+                        );
+                      },
+                    )
+                        : Container(
+                      color: Colors.grey[200],
+                      child: const Icon(Icons.restaurant, size: 50, color: Colors.grey),
+                    ),
                   ),
                 ),
                 Padding(

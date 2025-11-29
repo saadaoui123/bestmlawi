@@ -13,6 +13,8 @@ class Commande {
   String status;
   String? topMlawiId; // To store the assigned TopMlawi point ID
   String? livreurId; // To store the assigned delivery person ID
+  DateTime? pickedUpAt;
+  DateTime? deliveredAt;
 
   Commande({
     this.id,
@@ -27,6 +29,8 @@ class Commande {
     this.status = 'Pending',
     this.topMlawiId,
     this.livreurId,
+    this.pickedUpAt,
+    this.deliveredAt,
   });
 
   // Convert Commande object to a map for Firestore
@@ -43,6 +47,8 @@ class Commande {
       'status': status,
       'topMlawiId': topMlawiId,
       'livreurId': livreurId,
+      'pickedUpAt': pickedUpAt != null ? Timestamp.fromDate(pickedUpAt!) : null,
+      'deliveredAt': deliveredAt != null ? Timestamp.fromDate(deliveredAt!) : null,
     };
   }
 
@@ -62,6 +68,8 @@ class Commande {
       status: data['status'] ?? 'Pending',
       topMlawiId: data['topMlawiId'],
       livreurId: data['livreurId'],
+      pickedUpAt: data['pickedUpAt'] != null ? (data['pickedUpAt'] as Timestamp).toDate() : null,
+      deliveredAt: data['deliveredAt'] != null ? (data['deliveredAt'] as Timestamp).toDate() : null,
     );
   }
 
@@ -82,6 +90,16 @@ class Commande {
       status: data['status'] ?? 'pending',
       topMlawiId: data['topMlawiId'],
       livreurId: data['livreurId'],
+      pickedUpAt: data['pickedUpAt'] != null 
+          ? (data['pickedUpAt'] is Timestamp 
+              ? (data['pickedUpAt'] as Timestamp).toDate() 
+              : null) 
+          : null,
+      deliveredAt: data['deliveredAt'] != null 
+          ? (data['deliveredAt'] is Timestamp 
+              ? (data['deliveredAt'] as Timestamp).toDate() 
+              : null) 
+          : null,
     );
   }
 

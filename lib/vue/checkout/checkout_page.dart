@@ -2,8 +2,11 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:projet_best_mlewi/navigation/app_router.dart'; // Importer AppRouter pour la redirection
 import 'package:projet_best_mlewi/service/cart_service.dart';
-import 'package:projet_best_mlewi/model/commande.dart'; // Corrected Import Commande model
+import 'package:projet_best_mlewi/service/order_service.dart';
+import 'package:projet_best_mlewi/service/notification_service.dart';
+import 'package:projet_best_mlewi/model/commande.dart';
 
 class CheckoutPage extends StatefulWidget {
   const CheckoutPage({super.key});
@@ -18,6 +21,49 @@ class _CheckoutPageState extends State<CheckoutPage> {
   final TextEditingController _firstNameController = TextEditingController();
   final TextEditingController _phoneController = TextEditingController();
   final TextEditingController _addressController = TextEditingController();
+  bool _isLoading = true; // Pour afficher un indicateur de chargement
+
+  @override
+  void initState() {
+    super.initState();
+    _checkAuthAndLoadUserData();
+  }
+
+  Future<void> _checkAuthAndLoadUserData() async {
+    final user = FirebaseAuth.instance.currentUser;
+    if (user == null) {
+      // Si l'utilisateur n'est pas connecté, on le redirige vers la page de connexion
+      // On utilise un post-frame callback pour s'assurer que le build est terminé
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('Veuillez vous connecter pour continuer')),
+          );
+          AppRouter.pushNamedAndRemoveUntil('/login', (route) => false);
+        }
+      });
+      return;
+    }
+
+    // Si l'utilisateur est connecté, on charge ses données depuis Firestore
+    try {
+      final userDoc = await FirebaseFirestore.instance.collection('users').doc(user.uid).get();
+      if (userDoc.exists) {
+        final data = userDoc.data()!;
+        _nameController.text = data['lastName'] ?? ''; // 'lastName' ou 'name' selon votre BDD
+        _firstNameController.text = data['firstName'] ?? '';
+        _phoneController.text = data['phone'] ?? '';
+        _addressController.text = data['address'] ?? '';
+      }
+    } catch (e) {
+      print("Erreur lors du chargement des données utilisateur: $e");
+      // On peut continuer même si les données ne sont pas chargées
+    }
+
+    setState(() {
+      _isLoading = false;
+    });
+  }
 
   @override
   void dispose() {
@@ -33,6 +79,15 @@ class _CheckoutPageState extends State<CheckoutPage> {
       return;
     }
 
+    final user = FirebaseAuth.instance.currentUser;
+    // La vérification dans initState garantit que l'utilisateur est connecté ici
+    if (user == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Erreur: utilisateur non authentifié.')),
+      );
+      return;
+    }
+
     final cartService = Provider.of<CartService>(context, listen: false);
     if (cartService.items.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
@@ -41,25 +96,21 @@ class _CheckoutPageState extends State<CheckoutPage> {
       return;
     }
 
-    // Get user ID if logged in
-    final user = FirebaseAuth.instance.currentUser;
-    final String? userId = user?.uid;
+    final String userId = user.uid; // L'ID utilisateur est maintenant non-nullable
 
-    // Create order items list from cart items
     final List<Map<String, dynamic>> orderItems = cartService.items.map((item) => {
-          'name': item.name,
-          'price': item.price,
-          'quantity': item.quantity,
-          'image': item.image,
-        }).toList();
+      'name': item.name,
+      'price': item.price,
+      'quantity': item.quantity,
+      'image': item.image,
+    }).toList();
 
-    // Calculate total price including delivery fee (if applicable, for now let's reuse the fixed fee)
     const double deliveryFee = 7.00;
     final double subtotal = cartService.totalPrice;
     final double total = subtotal + deliveryFee;
 
     final newOrder = Commande(
-      userId: userId,
+      userId: userId, // On assigne l'ID client qui ne peut être nul
       clientName: _nameController.text.trim(),
       clientFirstName: _firstNameController.text.trim(),
       clientPhone: _phoneController.text.trim(),
@@ -71,16 +122,18 @@ class _CheckoutPageState extends State<CheckoutPage> {
     );
 
     try {
-      await FirebaseFirestore.instance.collection('orders').add(newOrder.toJson());
+      final orderService = Provider.of<OrderService>(context, listen: false);
+      final notificationService = Provider.of<NotificationService>(context, listen: false);
 
-      cartService.clearCart(); // Clear cart after successful order
+      await orderService.createOrder(newOrder, notificationService);
+
+      cartService.clearCart();
 
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(content: Text('Votre commande a été passée avec succès!')),
         );
-        
-        // Navigate back to home (AppShell root)
+
         Navigator.of(context).pushNamedAndRemoveUntil('/', (route) => false);
       }
     } catch (e) {
@@ -93,102 +146,116 @@ class _CheckoutPageState extends State<CheckoutPage> {
 
   @override
   Widget build(BuildContext context) {
-    return Column(
-      children: [
-        AppBar(
-          title: const Text('Passer à la caisse'),
-          automaticallyImplyLeading: false, // Hide back button as it's part of the main shell
+    // Affiche un indicateur de chargement pendant la vérification de l'authentification
+    if (_isLoading) {
+      return Scaffold(
+        appBar: AppBar(title: const Text('Passer à la caisse')),
+        body: const Center(child: CircularProgressIndicator()),
+      );
+    }
+
+    return Scaffold(
+      appBar: AppBar(
+        title: const Text('Passer à la caisse'),
+        // On garde le bouton de retour pour que l'utilisateur puisse retourner au panier
+        leading: IconButton(
+          icon: const Icon(Icons.arrow_back),
+          onPressed: () => Navigator.of(context).pop(),
         ),
-        Expanded(
-          child: SingleChildScrollView(
-            padding: const EdgeInsets.all(16.0),
-            child: Form(
-              key: _formKey,
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  const Text(
-                    'Informations Personnelles et Adresse',
-                    style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
-                  ),
-                  const SizedBox(height: 16),
-                  TextFormField(
-                    controller: _nameController,
-                    decoration: const InputDecoration(
-                      labelText: 'Nom',
-                      border: OutlineInputBorder(),
+      ),
+      body: Column(
+        children: [
+          Expanded(
+            child: SingleChildScrollView(
+              padding: const EdgeInsets.all(16.0),
+              child: Form(
+                key: _formKey,
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Text(
+                      'Informations de Livraison',
+                      style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
                     ),
-                    validator: (value) {
-                      if (value == null || value.isEmpty) {
-                        return 'Veuillez entrer votre nom';
-                      }
-                      return null;
-                    },
-                  ),
-                  const SizedBox(height: 12),
-                  TextFormField(
-                    controller: _firstNameController,
-                    decoration: const InputDecoration(
-                      labelText: 'Prénom',
-                      border: OutlineInputBorder(),
-                    ),
-                    validator: (value) {
-                      if (value == null || value.isEmpty) {
-                        return 'Veuillez entrer votre prénom';
-                      }
-                      return null;
-                    },
-                  ),
-                  const SizedBox(height: 12),
-                  TextFormField(
-                    controller: _phoneController,
-                    decoration: const InputDecoration(
-                      labelText: 'Téléphone',
-                      border: OutlineInputBorder(),
-                    ),
-                    keyboardType: TextInputType.phone,
-                    validator: (value) {
-                      if (value == null || value.isEmpty) {
-                        return 'Veuillez entrer votre numéro de téléphone';
-                      }
-                      return null;
-                    },
-                  ),
-                  const SizedBox(height: 12),
-                  TextFormField(
-                    controller: _addressController,
-                    decoration: const InputDecoration(
-                      labelText: 'Adresse',
-                      border: OutlineInputBorder(),
-                    ),
-                    maxLines: 3,
-                    validator: (value) {
-                      if (value == null || value.isEmpty) {
-                        return 'Veuillez entrer votre adresse de livraison';
-                      }
-                      return null;
-                    },
-                  ),
-                  const SizedBox(height: 24),
-                  SizedBox(
-                    width: double.infinity,
-                    child: ElevatedButton(
-                      onPressed: _placeOrder,
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: Colors.amber[800],
-                        foregroundColor: Colors.white,
-                        padding: const EdgeInsets.symmetric(vertical: 16),
-                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                    const SizedBox(height: 16),
+                    TextFormField(
+                      controller: _nameController,
+                      decoration: const InputDecoration(
+                        labelText: 'Nom',
+                        border: OutlineInputBorder(),
                       ),
-                      child: const Text('Valider la commande', style: TextStyle(fontSize: 18)),
+                      validator: (value) {
+                        if (value == null || value.isEmpty) {
+                          return 'Veuillez entrer votre nom';
+                        }
+                        return null;
+                      },
                     ),
-                  ),
-                ],
+                    const SizedBox(height: 12),
+                    TextFormField(
+                      controller: _firstNameController,
+                      decoration: const InputDecoration(
+                        labelText: 'Prénom',
+                        border: OutlineInputBorder(),
+                      ),
+                      validator: (value) {
+                        if (value == null || value.isEmpty) {
+                          return 'Veuillez entrer votre prénom';
+                        }
+                        return null;
+                      },
+                    ),
+                    const SizedBox(height: 12),
+                    TextFormField(
+                      controller: _phoneController,
+                      decoration: const InputDecoration(
+                        labelText: 'Téléphone',
+                        border: OutlineInputBorder(),
+                      ),
+                      keyboardType: TextInputType.phone,
+                      validator: (value) {
+                        if (value == null || value.isEmpty) {
+                          return 'Veuillez entrer votre numéro de téléphone';
+                        }
+                        return null;
+                      },
+                    ),
+                    const SizedBox(height: 12),
+                    TextFormField(
+                      controller: _addressController,
+                      decoration: const InputDecoration(
+                        labelText: 'Adresse',
+                        border: OutlineInputBorder(),
+                      ),
+                      maxLines: 3,
+                      validator: (value) {
+                        if (value == null || value.isEmpty) {
+                          return 'Veuillez entrer votre adresse de livraison';
+                        }
+                        return null;
+                      },
+                    ),
+                    const SizedBox(height: 24),
+                    SizedBox(
+                      width: double.infinity,
+                      child: ElevatedButton(
+                        onPressed: _placeOrder,
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: Colors.amber[800],
+                          foregroundColor: Colors.white,
+                          padding: const EdgeInsets.symmetric(vertical: 16),
+                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                        ),
+                        child: const Text('Valider la commande', style: TextStyle(fontSize: 18)),
+                      ),
+                    ),
+                  ],
+                ),
               ),
             ),
           ),
-        ),
-      ],
+        ],
+      ),
     );
   }
 }

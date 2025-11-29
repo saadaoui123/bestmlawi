@@ -1,12 +1,11 @@
 import 'user.dart';
 
 class Collaborateur extends User {
-  String? disponibilite;
-  int? idTopMlewi;
+  bool? disponibilite;
+  String? idTopMlewi;
 
   Collaborateur({
-    super.id,
-    super.nom,
+    super.id,super.nom,
     super.prenom,
     super.tel,
     super.email,
@@ -26,7 +25,10 @@ class Collaborateur extends User {
       password: json['password'],
       role: json['role'],
       disponibilite: json['disponibilite'],
-      idTopMlewi: json['idTopMlewi'],
+      // --- CORRECTION ICI ---
+      // Utiliser 'TopMlewiId' pour correspondre à Firestore,
+      // au lieu de 'idTopMlewi'.
+      idTopMlewi: json['TopMlewiId'],
     );
   }
 
@@ -35,7 +37,8 @@ class Collaborateur extends User {
     final data = super.toJson();
     data.addAll({
       'disponibilite': disponibilite,
-      'idTopMlewi': idTopMlewi,
+      // On garde 'TopMlewiId' pour être cohérent à l'écriture également
+      'TopMlewiId': idTopMlewi,
     });
     return data;
   }

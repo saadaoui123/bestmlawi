@@ -9,6 +9,18 @@ import 'package:projet_best_mlewi/vue/blog/blog_list_page.dart';
 import 'package:projet_best_mlewi/vue/blog/blog_detail_page.dart';
 import 'package:projet_best_mlewi/vue/admin/admin_setup_page.dart';
 import 'package:projet_best_mlewi/service/blog_service.dart';
+import 'package:projet_best_mlewi/vue/livreur/livreur_dashboard.dart';
+import 'package:projet_best_mlewi/vue/product_detail/product_detail_page.dart';
+import 'package:projet_best_mlewi/vue/orders/order_detail_page.dart';
+import 'package:projet_best_mlewi/vue/profile/edit_profile_page.dart';
+import 'package:projet_best_mlewi/vue/profile/addresses_page.dart';
+import 'package:projet_best_mlewi/vue/profile/settings_page.dart';
+import 'package:projet_best_mlewi/vue/profile/help_support_page.dart';
+import 'package:projet_best_mlewi/vue/notifications/notification_page.dart';
+import 'package:projet_best_mlewi/model/commande.dart';
+
+import '../vue/collaborateur/collaborateur_dashboard_page.dart';
+import '../vue/coordinateur/coordinateur_dashboard_page.dart';
 
 class RouteGenerator {
   static Route<dynamic> generateRoute(RouteSettings settings) {
@@ -36,8 +48,36 @@ class RouteGenerator {
         return _errorRoute();
       case '/management':
         return MaterialPageRoute(builder: (_) => const AppShell());
+      case '/livreur_dashboard':
+        return MaterialPageRoute(builder: (_) => const LivreurDashboard());
+
+      case '/collaborateur_dashboard': // Nouvelle route
+        return MaterialPageRoute(builder: (_) => const CollaborateurDashboardPage());
+
+      case '/coordinateur_dashboard': // Nouvelle route
+        return MaterialPageRoute(builder: (_) => const CoordinateurDashboardPage());
       case '/admin/setup':
         return MaterialPageRoute(builder: (_) => const AdminSetupPage());
+      case '/product_detail':
+        if (args is Map<String, dynamic>) {
+          return MaterialPageRoute(builder: (_) => ProductDetailPage(product: args));
+        }
+        return _errorRoute();
+      case '/order_detail':
+        if (args is Commande) {
+          return MaterialPageRoute(builder: (_) => OrderDetailPage(order: args));
+        }
+        return _errorRoute();
+      case '/profile/edit':
+        return MaterialPageRoute(builder: (_) => const EditProfilePage());
+      case '/profile/addresses':
+        return MaterialPageRoute(builder: (_) => const AddressesPage());
+      case '/profile/settings':
+        return MaterialPageRoute(builder: (_) => const SettingsPage());
+      case '/profile/help':
+        return MaterialPageRoute(builder: (_) => const HelpSupportPage());
+      case '/notifications':
+        return MaterialPageRoute(builder: (_) => const NotificationPage());
       default:
         return _errorRoute();
     }

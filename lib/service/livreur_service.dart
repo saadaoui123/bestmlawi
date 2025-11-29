@@ -1,37 +1,56 @@
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:projet_best_mlewi/model/livreur.dart';
+import 'package:projet_best_mlewi/service/notification_service.dart';
 
 class LivreurService extends ChangeNotifier {
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
+  // La collection principale pour tous les utilisateurs, y compris les livreurs.
+  final String _collectionPath = 'users';
 
-  // Get all available drivers
+  // Récupère tous les livreurs disponibles
   Stream<List<Livreur>> getAvailableLivreurs() {
     return _firestore
-        .collection('livreurs')
-        .where('isAvailable', isEqualTo: true)
+        .collection(_collectionPath)
+        .where('role', isEqualTo: 'livreur') // Filtrer par rôle
+        .where('disponibilite', isEqualTo: true) // Utiliser le nouveau champ
         .snapshots()
         .map((snapshot) => snapshot.docs
-            .map((doc) => Livreur.fromFirestore(doc))
-            .where((livreur) => livreur.canTakeOrder)
-            .toList());
+        .map((doc) => Livreur.fromFirestore(doc))
+        .where((livreur) => livreur.canTakeOrder)
+        .toList());
   }
 
-  // Get all drivers
+  // Récupère tous les livreurs
   Stream<List<Livreur>> getAllLivreurs() {
     return _firestore
-        .collection('livreurs')
+        .collection(_collectionPath)
+        .where('role', isEqualTo: 'livreur')
         .snapshots()
         .map((snapshot) => snapshot.docs
-            .map((doc) => Livreur.fromFirestore(doc))
-            .toList());
+        .map((doc) => Livreur.fromFirestore(doc))
+        .toList());
   }
 
-  // Assign order to driver
-  Future<void> assignOrderToLivreur(String orderId, String livreurId) async {
+  // Récupère un livreur par son ID
+  Future<Livreur?> getLivreurById(String id) async {
+    try {
+      final doc = await _firestore.collection(_collectionPath).doc(id).get();
+      if (doc.exists) {
+        return Livreur.fromFirestore(doc);
+      }
+      return null;
+    } catch (e) {
+      debugPrint('Error fetching livreur: $e');
+      return null;
+    }
+  }
+
+  // Assigne une commande à un livreur
+  Future<void> assignOrderToLivreur(String orderId, String livreurId, NotificationService notificationService) async {
     final batch = _firestore.batch();
 
-    // Update order
+    // Met à jour la commande
     batch.update(
       _firestore.collection('orders').doc(orderId),
       {
@@ -41,63 +60,60 @@ class LivreurService extends ChangeNotifier {
       },
     );
 
-    // Increment driver's active orders
+    // Incrémente les commandes actives du livreur dans la collection 'users'
     batch.update(
-      _firestore.collection('livreurs').doc(livreurId),
+      _firestore.collection(_collectionPath).doc(livreurId),
       {'activeOrders': FieldValue.increment(1)},
     );
 
     await batch.commit();
-    
-    // Send notification
-    await sendNotificationToLivreur(livreurId, orderId);
-    
+
+    // Envoie la notification
+    await notificationService.sendNotification(
+      userId: livreurId,
+      title: 'Nouvelle commande',
+      body: 'Une nouvelle commande vous a été assignée',
+      type: 'order_assigned',
+      relatedId: orderId,
+    );
+
     notifyListeners();
   }
 
-  // Send notification to driver (placeholder for now)
-  Future<void> sendNotificationToLivreur(String livreurId, String orderId) async {
-    // TODO: Implement Firebase Cloud Messaging
-    // For now, just create a notification document
-    await _firestore.collection('notifications').add({
-      'livreurId': livreurId,
-      'orderId': orderId,
-      'type': 'new_order',
-      'message': 'Nouvelle commande assignée',
-      'createdAt': FieldValue.serverTimestamp(),
-      'read': false,
-    });
-  }
-
-  // Update driver status
+  // Met à jour le statut de disponibilité d'un livreur
   Future<void> updateLivreurStatus(String livreurId, bool isAvailable) async {
-    await _firestore.collection('livreurs').doc(livreurId).update({
-      'isAvailable': isAvailable,
+    await _firestore.collection(_collectionPath).doc(livreurId).update({
+      'disponibilite': isAvailable, // Utiliser le nouveau champ
     });
     notifyListeners();
   }
 
-  // Create a new driver
+  // Crée un nouveau livreur (déprécié si la création se fait via AuthService/UserService)
   Future<void> createLivreur(Livreur livreur) async {
-    await _firestore.collection('livreurs').add(livreur.toMap());
+    // La création devrait passer par UserService pour créer User et Auth en même temps
+    await _firestore.collection(_collectionPath).add(livreur.toJson());
     notifyListeners();
   }
 
-  // Create a new driver with specific ID
+  // Crée un nouveau livreur avec un ID spécifique
   Future<void> createLivreurWithId(Livreur livreur, String id) async {
-    await _firestore.collection('livreurs').doc(id).set(livreur.toMap());
+    // Utilise la collection 'users' et la méthode toJson
+    await _firestore.collection(_collectionPath).doc(id).set(livreur.toJson());
     notifyListeners();
   }
 
-  // Update driver
+  // Met à jour un livreur
   Future<void> updateLivreur(Livreur livreur) async {
-    await _firestore.collection('livreurs').doc(livreur.id).update(livreur.toMap());
+    // Utilise la collection 'users' et la méthode toJson
+    await _firestore.collection(_collectionPath).doc(livreur.id).update(livreur.toJson());
     notifyListeners();
   }
 
-  // Delete driver
+  // Supprime un livreur
   Future<void> deleteLivreur(String livreurId) async {
-    await _firestore.collection('livreurs').doc(livreurId).delete();
+    // La suppression d'un livreur devrait aussi supprimer son compte d'authentification.
+    // Cette logique est souvent placée dans un UserService.
+    await _firestore.collection(_collectionPath).doc(livreurId).delete();
     notifyListeners();
   }
 }

@@ -31,17 +31,24 @@ class _ProductDetailPageState extends State<ProductDetailPage> {
                 children: [
                   Hero(
                     tag: 'product_${product['id'] ?? product['name']}',
-                    child: (product['image'] ?? '').startsWith('http')
-                        ? Image.network(
-                            product['image'],
+                    child: ((product['image'] ?? '').isEmpty)
+                        ? Image.asset(
+                            'assets/images/placeholder.png',
                             fit: BoxFit.cover,
-                            errorBuilder: (context, error, stackTrace) =>
-                                Image.asset('assets/images/placeholder.png', fit: BoxFit.cover),
                           )
-                        : Image.asset(
-                            product['image'] ?? 'assets/images/placeholder.png',
-                            fit: BoxFit.cover,
-                          ),
+                        : (product['image'].startsWith('http')
+                            ? Image.network(
+                                product['image'],
+                                fit: BoxFit.cover,
+                                errorBuilder: (context, error, stackTrace) =>
+                                    Image.asset('assets/images/placeholder.png', fit: BoxFit.cover),
+                              )
+                            : Image.asset(
+                                product['image'],
+                                fit: BoxFit.cover,
+                                errorBuilder: (context, error, stackTrace) =>
+                                    Image.asset('assets/images/placeholder.png', fit: BoxFit.cover),
+                              )),
                   ),
                   Container(
                     decoration: BoxDecoration(

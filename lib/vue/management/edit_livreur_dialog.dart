@@ -32,8 +32,8 @@ class _EditLivreurDialogState extends State<EditLivreurDialog> {
     String nom = '';
     String prenom = '';
     if (widget.livreur != null) {
-      final parts = widget.livreur!.name.split(' ');
-      if (parts.isNotEmpty) nom = parts[0];
+      final parts = widget.livreur!.nom?.split(' ');
+      if (parts!.isNotEmpty) nom = parts[0];
       if (parts.length > 1) prenom = parts.sublist(1).join(' ');
     }
 
@@ -41,7 +41,7 @@ class _EditLivreurDialogState extends State<EditLivreurDialog> {
     _prenomController = TextEditingController(text: prenom);
     _emailController = TextEditingController(text: ''); // Email not in Livreur model
     _passwordController = TextEditingController(text: '');
-    _phoneController = TextEditingController(text: widget.livreur?.phone ?? '');
+    _phoneController = TextEditingController(text: widget.livreur?.tel.toString() ?? '');
     _isAvailable = widget.livreur?.isAvailable ?? true;
   }
 
@@ -134,7 +134,7 @@ class _EditLivreurDialogState extends State<EditLivreurDialog> {
           onPressed: () async {
             if (_formKey.currentState!.validate()) {
               try {
-                String id;
+                String? id;
                 
                 if (widget.livreur == null) {
                   // Create new Auth account
@@ -164,7 +164,7 @@ class _EditLivreurDialogState extends State<EditLivreurDialog> {
 
                 if (widget.livreur == null) {
                   // Create new User doc
-                  await userService.createUserWithUid(user, id);
+                  await userService.createUserWithUid(user, id!);
                 } else {
                   // Update existing User doc
                   await userService.updateUser(user);
@@ -172,10 +172,10 @@ class _EditLivreurDialogState extends State<EditLivreurDialog> {
 
                 // Create/Update Livreur
                 final livreur = Livreur(
-                  id: id,
-                  name: '${_nomController.text} ${_prenomController.text}',
-                  phone: _phoneController.text,
-                  isAvailable: _isAvailable,
+                  id: id!,
+                  nom: '${_nomController.text} ${_prenomController.text}',
+                  tel: int.tryParse(_phoneController.text) ?? 0,
+                  disponibilite: _isAvailable,
                   activeOrders: widget.livreur?.activeOrders ?? 0,
                   currentLocation: widget.livreur?.currentLocation,
                   photoUrl: widget.livreur?.photoUrl,

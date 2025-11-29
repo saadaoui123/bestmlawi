@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:projet_best_mlewi/service/top_mlawi_service.dart';
 import 'package:projet_best_mlewi/service/livreur_service.dart';
+import 'package:projet_best_mlewi/service/notification_service.dart';
 import 'package:projet_best_mlewi/model/commande.dart';
 import 'package:projet_best_mlewi/model/top_mlawi.dart';
 import 'package:projet_best_mlewi/model/livreur.dart';
@@ -126,18 +127,19 @@ class AssignLivreurDialog extends StatelessWidget {
                     backgroundColor: livreur.canTakeOrder ? Colors.green : Colors.orange,
                     child: const Icon(Icons.delivery_dining, color: Colors.white),
                   ),
-                  title: Text(livreur.name),
+                  title: Text(livreur.nom!),
                   subtitle: Text(
-                    '${livreur.phone}\nCommandes actives: ${livreur.activeOrders}',
+                    '${livreur.tel}\nCommandes actives: ${livreur.activeOrders}',
                   ),
                   trailing: ElevatedButton(
                     onPressed: livreur.canTakeOrder
                         ? () async {
-                            await livreurService.assignOrderToLivreur(order.id!, livreur.id);
+                            final notificationService = Provider.of<NotificationService>(context, listen: false);
+                            await livreurService.assignOrderToLivreur(order.id!, livreur.id!, notificationService);
                             if (context.mounted) {
                               Navigator.pop(context);
                               ScaffoldMessenger.of(context).showSnackBar(
-                                SnackBar(content: Text('Commande affectée à ${livreur.name}')),
+                                SnackBar(content: Text('Commande affectée à ${livreur.nom}')),
                               );
                             }
                           }

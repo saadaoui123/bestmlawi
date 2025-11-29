@@ -26,7 +26,7 @@ class ProductsManagementTab extends StatelessWidget {
           final products = snapshot.data ?? [];
 
           if (products.isEmpty) {
-            return const Center(child: Text('Aucun produit trouvé'));
+            return const Center(child: Text('Aucun plat trouvé'));
           }
 
           return ListView.builder(

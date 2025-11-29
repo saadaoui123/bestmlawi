@@ -28,12 +28,16 @@ class CartService extends ChangeNotifier {
   List<CartItem> get items => _items;
 
   void addItem(Map<String, dynamic> product) {
+    final String name = product['name'] ?? 'Plat inconnu';
+    final double price = (product['price'] ?? 0.0).toDouble();
+    final String image = product['image'] ?? '';
+
     final existingItem = _items.firstWhere(
-      (item) => item.name == product['name'],
+      (item) => item.name == name,
       orElse: () => CartItem(
-        name: product['name'],
-        price: product['price'],
-        image: product['image'],
+        name: name,
+        price: price,
+        image: image,
       ),
     );
 

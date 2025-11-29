@@ -63,6 +63,8 @@ class AppLocalizations {
   String get error => _translate('Erreur', 'Error', 'خطأ');
   String get success => _translate('Succès', 'Success', 'نجح');
 
+  get loginToSeeOrders => null;
+
   // Helper method
   String _translate(String fr, String en, String ar) {
     switch (languageCode) {

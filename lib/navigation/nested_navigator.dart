@@ -65,7 +65,7 @@ class _NestedNavigatorState extends State<NestedNavigator> {
   @override
   Widget build(BuildContext context) {
     return Navigator(
-      key: AppRouter.navigatorKey, // Assign the AppRouter's navigatorKey here
+      // key: AppRouter.navigatorKey, // Removed to prevent conflict with root navigator
       onGenerateRoute: (settings) {
         Widget page;
         switch (settings.name) {

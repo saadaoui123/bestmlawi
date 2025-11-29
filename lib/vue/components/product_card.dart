@@ -3,6 +3,8 @@ import 'package:projet_best_mlewi/service/product_service.dart';
 import 'package:projet_best_mlewi/service/cart_service.dart';
 import 'package:provider/provider.dart';
 
+import '../../model/product.dart';
+
 class ProductCard extends StatelessWidget {
   final Product product;
 
@@ -40,21 +42,34 @@ class ProductCard extends StatelessWidget {
                     tag: 'product_${product.id}',
                     child: ClipRRect(
                       borderRadius: const BorderRadius.vertical(top: Radius.circular(16)),
-                      child: product.image.startsWith('http')
-                          ? Image.network(
-                              product.image,
+                      child: (product.image.isEmpty)
+                          ? Image.asset(
+                              'assets/images/placeholder.png',
                               fit: BoxFit.cover,
                               width: double.infinity,
                               height: double.infinity,
                               errorBuilder: (context, error, stackTrace) =>
-                                  Image.asset('assets/images/placeholder.png', fit: BoxFit.cover),
+                                  Container(color: Colors.grey[200], child: const Icon(Icons.fastfood, size: 50, color: Colors.grey)),
                             )
-                          : Image.asset(
-                              product.image,
-                              fit: BoxFit.cover,
-                              width: double.infinity,
-                              height: double.infinity,
-                            ),
+                          : (product.image.startsWith('http')
+                              ? Image.network(
+                                  product.image,
+                                  fit: BoxFit.cover,
+                                  width: double.infinity,
+                                  height: double.infinity,
+                                  errorBuilder: (context, error, stackTrace) =>
+                                      Image.asset('assets/images/placeholder.png', fit: BoxFit.cover,
+                                        errorBuilder: (c, e, s) => Container(color: Colors.grey[200], child: const Icon(Icons.image_not_supported)),
+                                      ),
+                                )
+                              : Image.asset(
+                                  product.image,
+                                  fit: BoxFit.cover,
+                                  width: double.infinity,
+                                  height: double.infinity,
+                                  errorBuilder: (context, error, stackTrace) =>
+                                      Container(color: Colors.grey[200], child: const Icon(Icons.image_not_supported)),
+                                )),
                     ),
                   ),
                   Positioned(

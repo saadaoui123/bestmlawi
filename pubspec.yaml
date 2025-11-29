@@ -29,6 +29,9 @@ environment:
 # versions available, run `flutter pub outdated`.
 dependencies:
   firebase_auth:
+
+  cloud_functions: # ou version plus récente
+
   firebase_core: ^4.2.1
   cloud_firestore:
   firebase_storage:
@@ -44,6 +47,7 @@ dependencies:
   google_maps_flutter: ^2.5.0 # Add google_maps_flutter dependency
   google_fonts: ^6.3.2
   image_picker: ^1.0.7
+  flutter_image_compress: ^2.3.0
 
 
 dev_dependencies:

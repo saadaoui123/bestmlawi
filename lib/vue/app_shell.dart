@@ -1,9 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:google_fonts/google_fonts.dart';
-import 'package:projet_best_mlewi/service/cart_service.dart';
-import 'package:projet_best_mlewi/service/settings_service.dart';
+import 'package:projet_best_mlewi/service/cart_service.dart';import 'package:projet_best_mlewi/service/settings_service.dart';
 import 'package:projet_best_mlewi/service/auth_service.dart';
+import 'package:projet_best_mlewi/service/notification_service.dart';
 import 'package:provider/provider.dart';
 import 'package:projet_best_mlewi/navigation/app_router.dart';
 import 'package:projet_best_mlewi/navigation/nested_navigator.dart';
@@ -11,6 +11,8 @@ import 'package:projet_best_mlewi/vue/home/home_content_page.dart';
 import 'package:projet_best_mlewi/vue/orders/orders_page.dart';
 import 'package:projet_best_mlewi/vue/map/map_page.dart';
 import 'package:projet_best_mlewi/vue/management/management_page.dart';
+// Importez votre page de connexion existante
+import 'package:projet_best_mlewi/vue/authentification/login.page.dart';
 
 class AppShell extends StatefulWidget {
   const AppShell({super.key});
@@ -24,18 +26,27 @@ class _AppShellState extends State<AppShell> {
   PageController? _pageController;
   bool _isManager = false;
 
-  final List<Widget> _clientPages = <Widget>[
-    const HomeContentPage(),
-    const OrdersPage(),
-    const MapPage(),
-  ];
+  List<Widget> _buildClientPages(bool isUserLoggedIn, SettingsService settings) {
+    return <Widget>[
+      const HomeContentPage(),
+      // Utilisation de la LoginPage si l'utilisateur n'est pas connecté
+      isUserLoggedIn
+          ? const OrdersPage()
+      // Enveloppez LoginPage dans un Scaffold pour qu'elle s'affiche correctement dans le corps de l'AppShell
+          : const Scaffold(body: LoginPage()),
+      const MapPage(),
+    ];
+  }
 
-  final List<Widget> _managerPages = <Widget>[
-    const HomeContentPage(),
-    const OrdersPage(),
-    const MapPage(),
-    const ManagementPage(),
-  ];
+  List<Widget> _buildManagerPages(SettingsService settings) {
+    // Les managers sont toujours connectés pour accéder à cet onglet
+    return <Widget>[
+      const HomeContentPage(),
+      const OrdersPage(),
+      const MapPage(),
+      const ManagementPage(),
+    ];
+  }
 
   @override
   void initState() {
@@ -46,14 +57,14 @@ class _AppShellState extends State<AppShell> {
   Future<void> _checkUserRole() async {
     final authService = AuthService();
     final isManager = await authService.isManager();
-    
-    // TEMPORARY: Force show management tab for debugging
+
     setState(() {
-      _isManager = true; // Force to true for testing
-      _selectedIndex = 0; // Start on home
-      _pageController = PageController(initialPage: 0);
+      _isManager = isManager;
+      // Start on Management tab (index 3) for managers, Home tab (index 0) for clients
+      _selectedIndex = isManager ? 3 : 0;
+      _pageController = PageController(initialPage: isManager ? 3 : 0);
     });
-    
+
     // Debug: Print role to console
     print('User is manager: $isManager');
   }
@@ -65,6 +76,14 @@ class _AppShellState extends State<AppShell> {
   }
 
   void _onItemTapped(int index) {
+    // Si l'utilisateur n'est pas connecté et clique sur l'onglet "Commandes" (index 1),
+    // on le redirige vers la page de connexion complète plutôt que de l'afficher dans l'onglet.
+    final isUserLoggedIn = FirebaseAuth.instance.currentUser != null;
+    if (!isUserLoggedIn && index == 1) {
+      AppRouter.pushNamed('/login');
+      return; // Empêche de changer l'onglet
+    }
+
     setState(() {
       _selectedIndex = index;
       _pageController?.jumpToPage(index);
@@ -76,7 +95,19 @@ class _AppShellState extends State<AppShell> {
     final cartService = Provider.of<CartService>(context);
     final settings = Provider.of<SettingsService>(context);
     final l10n = settings.localizations;
-    final mainPages = _isManager ? _managerPages : _clientPages;
+
+    final isUserLoggedIn = FirebaseAuth.instance.currentUser != null;
+
+    // Nous modifions légèrement la logique ici pour une meilleure redirection
+    final List<Widget> clientPages = [
+      const HomeContentPage(),
+      // Si l'utilisateur est connecté, on montre la page des commandes.
+      // Sinon, on met un conteneur vide. La redirection sera gérée dans _onItemTapped.
+      isUserLoggedIn ? const OrdersPage() : Container(),
+      const MapPage(),
+    ];
+
+    final mainPages = _isManager ? _buildManagerPages(settings) : clientPages;
 
     // Show loading while checking role
     if (_pageController == null) {
@@ -106,6 +137,55 @@ class _AppShellState extends State<AppShell> {
             icon: const Icon(Icons.admin_panel_settings, color: Colors.orange),
             onPressed: () => Navigator.of(context).pushNamed('/admin/setup'),
             tooltip: 'Configuration Admin',
+          ),
+          // Notification Bell
+          StreamBuilder<User?>(
+            stream: FirebaseAuth.instance.authStateChanges(),
+            builder: (context, authSnapshot) {
+              if (!authSnapshot.hasData) return const SizedBox.shrink();
+
+              final notificationService = Provider.of<NotificationService>(context);
+              return StreamBuilder<int>(
+                stream: notificationService.getUnreadCount(authSnapshot.data!.uid),
+                builder: (context, snapshot) {
+                  final unreadCount = snapshot.data ?? 0;
+                  return Stack(
+                    alignment: Alignment.center,
+                    children: [
+                      IconButton(
+                        icon: const Icon(Icons.notifications_outlined, color: Colors.black87),
+                        onPressed: () => Navigator.of(context).pushNamed('/notifications'),
+                      ),
+                      if (unreadCount > 0)
+                        Positioned(
+                          top: 8,
+                          right: 8,
+                          child: Container(
+                            padding: const EdgeInsets.all(4),
+                            decoration: const BoxDecoration(
+                              color: Colors.red,
+                              shape: BoxShape.circle,
+                            ),
+                            constraints: const BoxConstraints(
+                              minWidth: 16,
+                              minHeight: 16,
+                            ),
+                            child: Text(
+                              unreadCount > 9 ? '9+' : '$unreadCount',
+                              style: const TextStyle(
+                                color: Colors.white,
+                                fontSize: 10,
+                                fontWeight: FontWeight.bold,
+                              ),
+                              textAlign: TextAlign.center,
+                            ),
+                          ),
+                        ),
+                    ],
+                  );
+                },
+              );
+            },
           ),
           Stack(
             alignment: Alignment.center,

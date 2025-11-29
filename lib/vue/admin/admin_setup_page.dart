@@ -40,9 +40,9 @@ class _AdminSetupPageState extends State<AdminSetupPage> {
 
       setState(() {
         _loading = false;
-        _message = '✅ Compte gérant créé avec succès!\n\n'
-            'Email: gerant@bestmlawi.com\n'
-            'Mot de passe: Gerant123!\n'
+        _message = '✅ Compte gérant créé avec succès!\\n\\n'
+            'Email: gerant@bestmlawi.com\\n'
+            'Mot de passe: Gerant123!\\n'
             'UID: ${userCredential.user!.uid}';
       });
 
@@ -84,8 +84,63 @@ class _AdminSetupPageState extends State<AdminSetupPage> {
         'maxCapacity': 15,
       });
 
-      // Create delivery drivers
-      await firestore.collection('livreurs').add({
+      setState(() {
+        _loading = false;
+        _message = '✅ Données de test créées!\\n\\n'
+            '- 2 points TopMlawi créés';
+      });
+    } catch (e) {
+      setState(() {
+        _loading = false;
+        _message = '❌ Erreur: ${e.toString()}';
+      });
+    }
+  }
+
+  Future<void> _createDeliveryDriverAccounts() async {
+    setState(() {
+      _loading = true;
+      _message = '';
+    });
+
+    try {
+      final firestore = FirebaseFirestore.instance;
+      final auth = FirebaseAuth.instance;
+
+      // Create first delivery driver account
+      final driver1Credential = await auth.createUserWithEmailAndPassword(
+        email: 'livreur1@bestmlawi.com',
+        password: 'Livreur123!',
+      );
+
+      await firestore.collection('users').doc(driver1Credential.user!.uid).set({
+        'email': 'livreur1@bestmlawi.com',
+        'role': 'livreur',
+        'name': 'Ahmed Ben Ali',
+        'phone': '+216 20 123 456',
+        'createdAt': FieldValue.serverTimestamp(),
+      });
+
+      final driver1Id = driver1Credential.user!.uid;
+
+      // Create second delivery driver account
+      final driver2Credential = await auth.createUserWithEmailAndPassword(
+        email: 'livreur2@bestmlawi.com',
+        password: 'Livreur123!',
+      );
+
+      await firestore.collection('users').doc(driver2Credential.user!.uid).set({
+        'email': 'livreur2@bestmlawi.com',
+        'role': 'livreur',
+        'name': 'Mohamed Trabelsi',
+        'phone': '+216 22 234 567',
+        'createdAt': FieldValue.serverTimestamp(),
+      });
+
+      final driver2Id = driver2Credential.user!.uid;
+
+      // Also create corresponding entries in livreurs collection
+      await firestore.collection('livreurs').doc(driver1Id).set({
         'name': 'Ahmed Ben Ali',
         'phone': '+216 20 123 456',
         'isAvailable': true,
@@ -93,7 +148,7 @@ class _AdminSetupPageState extends State<AdminSetupPage> {
         'activeOrders': 0,
       });
 
-      await firestore.collection('livreurs').add({
+      await firestore.collection('livreurs').doc(driver2Id).set({
         'name': 'Mohamed Trabelsi',
         'phone': '+216 22 234 567',
         'isAvailable': true,
@@ -103,10 +158,112 @@ class _AdminSetupPageState extends State<AdminSetupPage> {
 
       setState(() {
         _loading = false;
-        _message = '✅ Données de test créées!\n\n'
-            '- 2 points TopMlawi\n'
-            '- 2 livreurs disponibles';
+        _message = '✅ Comptes livreurs créés avec succès!\\n\\n'
+            'Livreur 1:\\n'
+            'Email: livreur1@bestmlawi.com\\n'
+            'Mot de passe: Livreur123!\\n'
+            'UID: $driver1Id\\n\\n'
+            'Livreur 2:\\n'
+            'Email: livreur2@bestmlawi.com\\n'
+            'Mot de passe: Livreur123!\\n'
+            'UID: $driver2Id';
       });
+
+      // Sign out
+      await auth.signOut();
+      
+      print('Utilisateur ajouté avec succès avec UID: $driver1Id');
+      print('Utilisateur ajouté avec succès avec UID: $driver2Id');
+    } catch (e) {
+      setState(() {
+        _loading = false;
+        _message = '❌ Erreur: ${e.toString()}';
+      });
+    }
+  }
+
+  Future<void> _fixSpecificAccount() async {
+    setState(() {
+      _loading = true;
+      _message = '';
+    });
+
+    try {
+      final firestore = FirebaseFirestore.instance;
+      final auth = FirebaseAuth.instance;
+
+      // 1. Sign in as the user to get their UID
+      try {
+        final userCredential = await auth.signInWithEmailAndPassword(
+          email: 'amine22@gmail.com',
+          password: 'amine123', // Assuming this is the password based on screenshot
+        );
+        
+        final uid = userCredential.user!.uid;
+        print('DEBUG: Fixing account for UID: $uid');
+
+        // 2. Create/Update the user document
+        await firestore.collection('users').doc(uid).set({
+          'email': 'amine22@gmail.com',
+          'role': 'livreur',
+          'name': 'Amine',
+          'prenom': 'Barka',
+          'phone': '5555555',
+          'createdAt': FieldValue.serverTimestamp(),
+        }, SetOptions(merge: true));
+
+        // 3. Ensure entry in livreurs collection
+        await firestore.collection('livreurs').doc(uid).set({
+          'name': 'Amine Barka',
+          'phone': '5555555',
+          'isAvailable': true,
+          'currentLocation': const GeoPoint(36.8065, 10.1815),
+          'activeOrders': 0,
+        }, SetOptions(merge: true));
+
+        setState(() {
+          _loading = false;
+          _message = '✅ Compte amine22@gmail.com réparé!\nUID: $uid';
+        });
+
+        await auth.signOut();
+
+      } catch (e) {
+        // If sign in fails, try to create it
+        print('DEBUG: Sign in failed, trying to create: $e');
+        
+        final userCredential = await auth.createUserWithEmailAndPassword(
+          email: 'amine22@gmail.com',
+          password: 'amine123',
+        );
+        
+        final uid = userCredential.user!.uid;
+        
+        await firestore.collection('users').doc(uid).set({
+          'email': 'amine22@gmail.com',
+          'role': 'livreur',
+          'name': 'Amine',
+          'prenom': 'Barka',
+          'phone': '5555555',
+          'createdAt': FieldValue.serverTimestamp(),
+        });
+        
+        await firestore.collection('livreurs').doc(uid).set({
+          'name': 'Amine Barka',
+          'phone': '5555555',
+          'isAvailable': true,
+          'currentLocation': const GeoPoint(36.8065, 10.1815),
+          'activeOrders': 0,
+        });
+
+        setState(() {
+          _loading = false;
+          _message = '✅ Compte amine22@gmail.com créé et configuré!\nUID: $uid';
+        });
+        
+        await auth.signOut();
+      }
+
     } catch (e) {
       setState(() {
         _loading = false;
@@ -175,6 +332,20 @@ class _AdminSetupPageState extends State<AdminSetupPage> {
                         ),
                       ),
                     ),
+                    const SizedBox(height: 16),
+                    SizedBox(
+                      width: double.infinity,
+                      child: ElevatedButton.icon(
+                        onPressed: _createDeliveryDriverAccounts,
+                        icon: const Icon(Icons.motorcycle),
+                        label: const Text('Créer Comptes Livreurs'),
+                        style: ElevatedButton.styleFrom(
+                          padding: const EdgeInsets.all(16),
+                          backgroundColor: Colors.blue,
+                          foregroundColor: Colors.white,
+                        ),
+                      ),
+                    ),
                   ],
                   if (_message.isNotEmpty) ...[
                     const SizedBox(height: 24),
@@ -212,9 +383,10 @@ class _AdminSetupPageState extends State<AdminSetupPage> {
                   const Text(
                     '1. Créez d\'abord le compte gérant\n'
                     '2. Créez ensuite les données de test\n'
-                    '3. Connectez-vous avec:\n'
-                    '   Email: gerant@bestmlawi.com\n'
-                    '   Mot de passe: Gerant123!',
+                    '3. Créez les comptes livreurs\n'
+                    '4. Test de connexion:\n'
+                    '   Gérant: gerant@bestmlawi.com / Gerant123!\n'
+                    '   Livreur: livreur1@bestmlawi.com / Livreur123!',
                     style: TextStyle(fontSize: 12, color: Colors.grey),
                   ),
                 ],

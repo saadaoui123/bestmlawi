@@ -1,5 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:projet_best_mlewi/model/commande.dart';
+import 'package:projet_best_mlewi/service/livreur_service.dart';
+import 'package:projet_best_mlewi/service/order_service.dart';
+import 'package:provider/provider.dart';
+import 'package:projet_best_mlewi/model/livreur.dart';
 import 'package:intl/intl.dart';
 import 'package:projet_best_mlewi/vue/management/assign_dialogs.dart';
 
@@ -10,29 +14,47 @@ class ManagementOrderDetailPage extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final orderService = Provider.of<OrderService>(context, listen: false);
+
     return Scaffold(
       backgroundColor: Colors.grey[50],
       appBar: AppBar(
         title: Text('Commande #${order.id?.substring(0, 8) ?? "N/A"}'),
         elevation: 0,
       ),
-      body: SingleChildScrollView(
-        padding: const EdgeInsets.all(16.0),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            _buildStatusCard(order),
-            const SizedBox(height: 16),
-            _buildClientInfoCard(order),
-            const SizedBox(height: 16),
-            _buildOrderItemsCard(order),
-            const SizedBox(height: 16),
-            _buildPaymentInfoCard(order),
-            const SizedBox(height: 16),
-            _buildAssignmentCard(context, order),
-            const SizedBox(height: 32),
-          ],
-        ),
+      body: StreamBuilder<Commande>(
+        stream: orderService.getOrderStream(order.id!),
+        initialData: order,
+        builder: (context, snapshot) {
+          if (snapshot.hasError) {
+            return Center(child: Text('Erreur: ${snapshot.error}'));
+          }
+
+          if (!snapshot.hasData) {
+            return const Center(child: CircularProgressIndicator());
+          }
+
+          final currentOrder = snapshot.data!;
+
+          return SingleChildScrollView(
+            padding: const EdgeInsets.all(16.0),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                _buildStatusCard(currentOrder),
+                const SizedBox(height: 16),
+                _buildClientInfoCard(currentOrder),
+                const SizedBox(height: 16),
+                _buildOrderItemsCard(currentOrder),
+                const SizedBox(height: 16),
+                _buildPaymentInfoCard(currentOrder),
+                const SizedBox(height: 16),
+                _buildAssignmentCard(context, currentOrder),
+                const SizedBox(height: 32),
+              ],
+            ),
+          );
+        },
       ),
     );
   }
@@ -219,7 +241,16 @@ class ManagementOrderDetailPage extends StatelessWidget {
             ),
             const Divider(height: 24),
             if (order.livreurId != null)
-              _buildInfoRow('Livreur', 'ID: ${order.livreurId}')
+              FutureBuilder<Livreur?>(
+                future: Provider.of<LivreurService>(context, listen: false).getLivreurById(order.livreurId!),
+                builder: (context, snapshot) {
+                  if (snapshot.connectionState == ConnectionState.waiting) {
+                    return _buildInfoRow('Livreur', 'Chargement...');
+                  }
+                  final livreurName = snapshot.data?.nom ?? 'ID: ${order.livreurId}';
+                  return _buildInfoRow('Livreur', livreurName);
+                },
+              )
             else if (order.topMlawiId != null)
               _buildInfoRow('TopMlawi', 'ID: ${order.topMlawiId}')
             else

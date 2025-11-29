@@ -1,19 +1,20 @@
 import 'package:flutter/material.dart';
-import 'package:provider/provider.dart';
-import 'package:projet_best_mlewi/service/livreur_service.dart';
-import 'package:projet_best_mlewi/model/livreur.dart';
-import 'edit_livreur_dialog.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
 
 class LivreursManagementTab extends StatelessWidget {
   const LivreursManagementTab({super.key});
 
   @override
   Widget build(BuildContext context) {
-    final livreurService = Provider.of<LivreurService>(context);
+    // Le Stream pointe maintenant vers la collection 'users' et filtre par rôle
+    final Stream<QuerySnapshot> livreursStream = FirebaseFirestore.instance
+        .collection('users')
+        .where('role', isEqualTo: 'livreur')
+        .snapshots();
 
     return Scaffold(
-      body: StreamBuilder<List<Livreur>>(
-        stream: livreurService.getAllLivreurs(),
+      body: StreamBuilder<QuerySnapshot>(
+        stream: livreursStream,
         builder: (context, snapshot) {
           if (snapshot.connectionState == ConnectionState.waiting) {
             return const Center(child: CircularProgressIndicator());
@@ -23,82 +24,75 @@ class LivreursManagementTab extends StatelessWidget {
             return Center(child: Text('Erreur: ${snapshot.error}'));
           }
 
-          final livreurs = snapshot.data ?? [];
-
-          if (livreurs.isEmpty) {
+          if (!snapshot.hasData || snapshot.data!.docs.isEmpty) {
             return const Center(child: Text('Aucun livreur trouvé'));
           }
+
+          final livreurs = snapshot.data!.docs;
 
           return ListView.builder(
             itemCount: livreurs.length,
             itemBuilder: (context, index) {
-              final livreur = livreurs[index];
-              return ListTile(
-                leading: CircleAvatar(
-                  backgroundImage: livreur.photoUrl != null ? NetworkImage(livreur.photoUrl!) : null,
-                  child: livreur.photoUrl == null ? const Icon(Icons.person) : null,
-                ),
-                title: Text(livreur.name),
-                subtitle: Text('${livreur.phone}\nCommandes actives: ${livreur.activeOrders}'),
-                trailing: Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Switch(
-                      value: livreur.isAvailable,
-                      onChanged: (value) {
-                        livreurService.updateLivreurStatus(livreur.id, value);
-                      },
-                    ),
-                    IconButton(
-                      icon: const Icon(Icons.edit),
-                      onPressed: () async {
-                        await showDialog<Livreur>(
-                          context: context,
-                          builder: (context) => EditLivreurDialog(livreur: livreur),
-                        );
-                      },
-                    ),
-                    IconButton(
-                      icon: const Icon(Icons.delete, color: Colors.red),
-                      onPressed: () {
-                        showDialog(
-                          context: context,
-                          builder: (context) => AlertDialog(
-                            title: const Text('Confirmer la suppression'),
-                            content: Text('Voulez-vous vraiment supprimer ${livreur.name} ?'),
-                            actions: [
-                              TextButton(
-                                onPressed: () => Navigator.pop(context),
-                                child: const Text('Annuler'),
-                              ),
-                              TextButton(
-                                onPressed: () {
-                                  livreurService.deleteLivreur(livreur.id);
-                                  Navigator.pop(context);
-                                },
-                                child: const Text('Supprimer', style: TextStyle(color: Colors.red)),
-                              ),
-                            ],
-                          ),
-                        );
-                      },
-                    ),
-                  ],
+              final livreurDoc = livreurs[index];
+              final data = livreurDoc.data() as Map<String, dynamic>;
+
+              // Extraction des données du document utilisateur
+              final String name = '${data['firstName'] ?? ''} ${data['lastName'] ?? ''}'.trim();
+              final String email = data['email'] ?? 'Email inconnu';
+              final String phone = data['phone'] ?? 'Téléphone non fourni';
+              final bool isAvailable = data['isAvailable'] ?? false; // Disponibilité du livreur
+
+              return Card(
+                margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                child: ListTile(
+                  leading: const CircleAvatar(
+                    child: Icon(Icons.delivery_dining),
+                  ),
+                  title: Text(name),
+                  subtitle: Text('$email\n$phone'),
+                  trailing: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      const Text('Dispo: '),
+                      Switch(
+                        value: isAvailable,
+                        onChanged: (value) {
+                          // Mettre à jour la disponibilité directement dans Firestore
+                          _updateAvailability(context, livreurDoc.id, value);
+                        },
+                      ),
+                      // Vous pouvez ajouter d'autres actions ici si nécessaire,
+                      // comme la suppression ou la modification, en suivant le modèle
+                      // de 'collaborators_management_tab.dart'
+                    ],
+                  ),
                 ),
               );
             },
           );
         },
       ),
-      floatingActionButton: FloatingActionButton(
-        onPressed: () async {
-          await showDialog<Livreur>(
-            context: context,
-            builder: (context) => const EditLivreurDialog(),
-          );
-        },
-        child: const Icon(Icons.add),
-      ),
+      // Le bouton flottant n'est plus nécessaire ici car la création se fait
+      // via l'onglet "Collaborateurs", qui assigne ensuite le rôle de livreur.
+      // floatingActionButton: FloatingActionButton( ... ),
     );
+  }
+
+  // Fonction pour mettre à jour le statut de disponibilité dans Firestore
+  Future<void> _updateAvailability(BuildContext context, String uid, bool isAvailable) async {
+    try {
+      await FirebaseFirestore.instance
+          .collection('users')
+          .doc(uid)
+          .update({'isAvailable': isAvailable});
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Disponibilité mise à jour.')),
+      );
+    } catch (e) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Erreur lors de la mise à jour: $e')),
+      );
+    }
   }
 }
