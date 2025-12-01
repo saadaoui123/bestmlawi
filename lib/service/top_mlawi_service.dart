@@ -96,8 +96,43 @@ class TopMlawiService extends ChangeNotifier {
   }
 
   // Create a new TopMlawi point (for testing)
-  Future<void> createTopMlawi(TopMlawi topMlawi) async {
+  Future<void> createTopMlawii(TopMlawi topMlawi) async {
     await _firestore.collection('topmlawi').add(topMlawi.toMap());
     notifyListeners();
   }
+  Future<void> createTopMlawi(TopMlawi topMlawi) async {
+  try {
+  // toMap() est plus approprié ici que toJson() qui est pour l'API
+  await _firestore.collection('topmlawi').add(topMlawi.toMap());
+  notifyListeners();
+  } catch (e) {
+  debugPrint("Erreur lors de la création du point de vente : $e");
+  rethrow;
+  }
+}
+
+/// Met à jour un point de vente existant.
+Future<void> updateTopMlawi(TopMlawi topMlawi) async {
+  try {
+    await _firestore
+        .collection('topmlawi')
+        .doc(topMlawi.id)
+        .update(topMlawi.toMap());
+    notifyListeners();
+  } catch (e) {
+    debugPrint("Erreur lors de la mise à jour du point de vente : $e");
+    rethrow;
+  }
+}
+
+/// Supprime un point de vente.
+Future<void> deleteTopMlawi(String topMlawiId) async {
+  try {
+    await _firestore.collection('topmlawi').doc(topMlawiId).delete();
+    notifyListeners();
+  } catch (e) {
+    debugPrint("Erreur lors de la suppression du point de vente : $e");
+    rethrow;
+  }
+}
 }

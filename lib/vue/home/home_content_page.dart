@@ -12,16 +12,29 @@ class HomeContentPage extends StatefulWidget {
 }
 
 class _HomeContentPageState extends State<HomeContentPage> {
-  // 1. Variables pour gérer l'état de la recherche
   final TextEditingController _searchController = TextEditingController();
   List<Product> _allProducts = [];
-  List<Product> _filteredProducts = [];
   String _searchQuery = '';
+
+  // --- DÉBUT DE LA CORRECTION ---
+  // On définit la liste complète des catégories ici pour la réutiliser
+  final List<String> _categories = const [
+    'Plats',
+    'Mlawi',
+    'Sandwichs',
+    'Tacos',
+    'Pizza',
+    'Plats Tunisiens',
+    'Entrées',
+    'Soupes',
+    'Desserts',
+    'Boissons',
+  ];
+  // --- FIN DE LA CORRECTION ---
 
   @override
   void initState() {
     super.initState();
-    // Écouter les changements du contrôleur de recherche
     _searchController.addListener(() {
       if (_searchQuery != _searchController.text) {
         setState(() {
@@ -37,7 +50,6 @@ class _HomeContentPageState extends State<HomeContentPage> {
     super.dispose();
   }
 
-  // 2. Méthode pour obtenir la liste filtrée (plus propre sans état séparé)
   List<Product> _getFilteredProducts() {
     if (_searchQuery.isEmpty) {
       return _allProducts;
@@ -45,19 +57,17 @@ class _HomeContentPageState extends State<HomeContentPage> {
       return _allProducts
           .where((product) =>
       product.name.toLowerCase().contains(_searchQuery.toLowerCase()) ||
-          product.description.toLowerCase().contains(_searchQuery.toLowerCase()))
+          product.description
+              .toLowerCase()
+              .contains(_searchQuery.toLowerCase()))
           .toList();
     }
   }
 
-  // Helper method to validate image URLs
   bool _isValidImageUrl(String url) {
     if (url.isEmpty) return false;
-    // Reject Google search URLs and other invalid URLs
     if (url.contains('google.com/search')) return false;
-    // Accept Firebase Storage URLs and common image hosting
     if (url.startsWith('https://firebasestorage.googleapis.com/')) return true;
-    // Accept URLs ending with image extensions
     final imageExtensions = ['.jpg', '.jpeg', '.png', '.gif', '.webp', '.bmp'];
     return imageExtensions.any((ext) => url.toLowerCase().endsWith(ext));
   }
@@ -72,7 +82,7 @@ class _HomeContentPageState extends State<HomeContentPage> {
           Padding(
             padding: const EdgeInsets.all(16.0),
             child: TextField(
-              controller: _searchController, // Utilisation du contrôleur
+              controller: _searchController,
               decoration: InputDecoration(
                 hintText: 'Rechercher des plats...',
                 prefixIcon: const Icon(Icons.search),
@@ -94,7 +104,8 @@ class _HomeContentPageState extends State<HomeContentPage> {
             ),
           ),
           Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 8.0),
+            padding:
+            const EdgeInsets.symmetric(horizontal: 16.0, vertical: 8.0),
             child: Container(
               height: 150,
               decoration: BoxDecoration(
@@ -107,7 +118,10 @@ class _HomeContentPageState extends State<HomeContentPage> {
               child: const Center(
                 child: Text(
                   'Découvrez nos saveurs authentiques, livrées à votre porte.',
-                  style: TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold),
+                  style: TextStyle(
+                      color: Colors.white,
+                      fontSize: 18,
+                      fontWeight: FontWeight.bold),
                   textAlign: TextAlign.center,
                 ),
               ),
@@ -123,8 +137,9 @@ class _HomeContentPageState extends State<HomeContentPage> {
               ),
             ),
           ),
+          // --- CORRECTION DU DefaultTabController ---
           DefaultTabController(
-            length: 4,
+            length: _categories.length, // La longueur est maintenant dynamique
             child: Column(
               children: [
                 TabBar(
@@ -132,15 +147,11 @@ class _HomeContentPageState extends State<HomeContentPage> {
                   labelColor: Colors.amber[800],
                   unselectedLabelColor: Colors.grey,
                   isScrollable: true,
-                  tabs: const [
-                    Tab(text: 'Plats'),
-                    Tab(text: 'Entrées'),
-                    Tab(text: 'Soupes'),
-                    Tab(text: 'Desserts'),
-                  ],
+                  // On génère les onglets à partir de notre liste de catégories
+                  tabs: _categories.map((category) => Tab(text: category)).toList(),
                 ),
                 SizedBox(
-                  height: 500,
+                  height: 500, // Vous pouvez ajuster cette hauteur si nécessaire
                   child: StreamBuilder<List<Product>>(
                     stream: productService.getAllProducts(),
                     builder: (context, snapshot) {
@@ -160,13 +171,14 @@ class _HomeContentPageState extends State<HomeContentPage> {
                         );
                       }
 
+                      // On génère les vues à partir de notre liste de catégories
                       return TabBarView(
-                        children: [
-                          _buildMenuItemGrid(filteredList.where((p) => p.category == 'Plats').toList()),
-                          _buildMenuItemGrid(filteredList.where((p) => p.category == 'Entrées').toList()),
-                          _buildMenuItemGrid(filteredList.where((p) => p.category == 'Soupes').toList()),
-                          _buildMenuItemGrid(filteredList.where((p) => p.category == 'Desserts').toList()),
-                        ],
+                        children: _categories.map((category) {
+                          final itemsForCategory = filteredList
+                              .where((p) => p.category == category)
+                              .toList();
+                          return _buildMenuItemGrid(itemsForCategory);
+                        }).toList(),
                       );
                     },
                   ),
@@ -181,7 +193,10 @@ class _HomeContentPageState extends State<HomeContentPage> {
 
   Widget _buildMenuItemGrid(List<Product> items) {
     if (items.isEmpty) {
-      return Center(child: Text(_searchQuery.isEmpty ? 'Aucun produit dans cette catégorie' : ''));
+      return Center(
+          child: Text(_searchQuery.isEmpty
+              ? 'Aucun produit dans cette catégorie'
+              : ''));
     }
     return GridView.builder(
       padding: const EdgeInsets.all(16.0),
@@ -204,14 +219,17 @@ class _HomeContentPageState extends State<HomeContentPage> {
           },
           child: Card(
             elevation: 4,
-            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+            shape:
+            RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Expanded(
                   child: ClipRRect(
-                    borderRadius: const BorderRadius.vertical(top: Radius.circular(12)),
-                    child: product.imageUrl.isNotEmpty && _isValidImageUrl(product.imageUrl)
+                    borderRadius:
+                    const BorderRadius.vertical(top: Radius.circular(12)),
+                    child: product.imageUrl.isNotEmpty &&
+                        _isValidImageUrl(product.imageUrl)
                         ? Image.network(
                       product.imageUrl,
                       fit: BoxFit.cover,
@@ -219,19 +237,22 @@ class _HomeContentPageState extends State<HomeContentPage> {
                       errorBuilder: (context, error, stackTrace) =>
                           Container(
                             color: Colors.grey[200],
-                            child: const Icon(Icons.restaurant, size: 50, color: Colors.grey),
+                            child: const Icon(Icons.restaurant,
+                                size: 50, color: Colors.grey),
                           ),
                       loadingBuilder: (context, child, loadingProgress) {
                         if (loadingProgress == null) return child;
                         return Container(
                           color: Colors.grey[200],
-                          child: const Center(child: CircularProgressIndicator()),
+                          child: const Center(
+                              child: CircularProgressIndicator()),
                         );
                       },
                     )
                         : Container(
                       color: Colors.grey[200],
-                      child: const Icon(Icons.restaurant, size: 50, color: Colors.grey),
+                      child: const Icon(Icons.restaurant,
+                          size: 50, color: Colors.grey),
                     ),
                   ),
                 ),
@@ -242,14 +263,16 @@ class _HomeContentPageState extends State<HomeContentPage> {
                     children: [
                       Text(
                         product.name,
-                        style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+                        style: const TextStyle(
+                            fontWeight: FontWeight.bold, fontSize: 16),
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
                       ),
                       const SizedBox(height: 4),
                       Text(
                         product.description,
-                        style: const TextStyle(fontSize: 12, color: Colors.grey),
+                        style:
+                        const TextStyle(fontSize: 12, color: Colors.grey),
                         maxLines: 2,
                         overflow: TextOverflow.ellipsis,
                       ),
@@ -259,20 +282,28 @@ class _HomeContentPageState extends State<HomeContentPage> {
                         children: [
                           Text(
                             '${product.price.toStringAsFixed(2)} DT',
-                            style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16, color: Colors.amber[800]),
+                            style: TextStyle(
+                                fontWeight: FontWeight.bold,
+                                fontSize: 16,
+                                color: Colors.amber[800]),
                           ),
                           ElevatedButton(
                             onPressed: () {
-                              Provider.of<CartService>(context, listen: false).addItem(product.toMap());
+                              Provider.of<CartService>(context, listen: false)
+                                  .addItem(product.toMap());
                               ScaffoldMessenger.of(context).showSnackBar(
-                                SnackBar(content: Text('${product.name} ajouté au panier!')),
+                                SnackBar(
+                                    content:
+                                    Text('${product.name} ajouté au panier!')),
                               );
                             },
                             style: ElevatedButton.styleFrom(
                               backgroundColor: Colors.amber[800],
                               foregroundColor: Colors.white,
-                              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                              padding: const EdgeInsets.symmetric(
+                                  horizontal: 12, vertical: 8),
+                              shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(8)),
                             ),
                             child: const Text('Ajouter'),
                           ),

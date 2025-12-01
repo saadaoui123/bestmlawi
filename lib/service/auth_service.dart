@@ -39,6 +39,28 @@ class AuthService {
   Future<void> signOut() async {
     await _auth.signOut();
   }
+  Future<void> updateUserAvailability(bool isAvailable) async {
+    final user = currentUser;
+    if (user == null) return;
+
+    try {
+      await FirebaseFirestore.instance.collection('users').doc(user.uid).update({
+        'isAvailable': isAvailable,
+      });
+      //notifyListeners();
+    } catch (e) {
+      debugPrint("Erreur lors de la mise à jour de la disponibilité : $e");
+      rethrow;
+    }
+  }
+  Future<void> sendPasswordResetEmail(String email) async {
+    try {
+      await _auth.sendPasswordResetEmail(email: email);
+    } catch (e) {
+      debugPrint("Erreur lors de l'envoi de l'email de réinitialisation : $e");
+      rethrow;
+    }
+  }
 
   // Create account (for manager to create other users without logging out)
   Future<String?> createAccount(String email, String password) async {
@@ -58,6 +80,8 @@ class AuthService {
         email: email,
         password: password,
       );
+
+
 
       return userCredential.user?.uid;
     } catch (e) {

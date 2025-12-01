@@ -15,6 +15,7 @@ class Commande {
   String? livreurId; // To store the assigned delivery person ID
   DateTime? pickedUpAt;
   DateTime? deliveredAt;
+  final DateTime? updatedAt;
 
   Commande({
     this.id,
@@ -26,6 +27,7 @@ class Commande {
     required this.items,
     required this.totalPrice,
     required this.orderDate,
+    this.updatedAt,
     this.status = 'Pending',
     this.topMlawiId,
     this.livreurId,
@@ -59,12 +61,14 @@ class Commande {
       id: doc.id,
       userId: data['userId'],
       clientName: data['clientName'],
+
       clientFirstName: data['clientFirstName'],
       clientPhone: data['clientPhone'],
       clientAddress: data['clientAddress'],
       items: List<Map<String, dynamic>>.from(data['items']),
       totalPrice: (data['totalPrice'] as num).toDouble(),
       orderDate: (data['orderDate'] as Timestamp).toDate(),
+
       status: data['status'] ?? 'Pending',
       topMlawiId: data['topMlawiId'],
       livreurId: data['livreurId'],
@@ -90,6 +94,7 @@ class Commande {
       status: data['status'] ?? 'pending',
       topMlawiId: data['topMlawiId'],
       livreurId: data['livreurId'],
+      updatedAt: (data['updatedAt'] as Timestamp?)?.toDate(),
       pickedUpAt: data['pickedUpAt'] != null 
           ? (data['pickedUpAt'] is Timestamp 
               ? (data['pickedUpAt'] as Timestamp).toDate() 

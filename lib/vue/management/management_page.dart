@@ -1,9 +1,13 @@
+// lib/vue/management/management_page.dart
 import 'package:flutter/material.dart';
 import 'livreurs_management_tab.dart';
 import 'users_management_tab.dart';
 import 'products_management_tab.dart';
 import 'orders_management_tab.dart';
-import 'collaborators_management_tab.dart'; // Importez le nouveau fichier
+import 'collaborators_management_tab.dart';
+// --- DÉBUT DE L'AJOUT ---
+import 'top_mlawi_management_tab.dart'; // Importer le nouvel onglet
+// --- FIN DE L'AJOUT ---
 
 class ManagementPage extends StatelessWidget {
   const ManagementPage({super.key});
@@ -11,12 +15,12 @@ class ManagementPage extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return DefaultTabController(
-      length: 5, // Mettez à jour la longueur à 5
+      // --- MODIFIÉ : Mettre à jour la longueur à 6 ---
+      length: 6,
       child: Scaffold(
         appBar: AppBar(
           title: const Text('Gestion'),
           automaticallyImplyLeading: false,
-          // Rendre la TabBar scrollable pour une meilleure visibilité sur les petits écrans
           bottom: const TabBar(
             isScrollable: true,
             tabs: [
@@ -24,7 +28,8 @@ class ManagementPage extends StatelessWidget {
               Tab(text: 'Plats'),
               Tab(text: 'Utilisateurs'),
               Tab(text: 'Livreurs'),
-              Tab(text: 'Collaborateurs'), // Nouvel onglet
+              Tab(text: 'Collaborateurs'),
+              Tab(text: 'Points de Vente'),
             ],
           ),
         ),
@@ -34,7 +39,8 @@ class ManagementPage extends StatelessWidget {
             ProductsManagementTab(),
             UsersManagementTab(),
             LivreursManagementTab(),
-            CollaboratorsManagementTab(), // Ajoutez la nouvelle vue ici
+            CollaboratorsManagementTab(),
+            TopMlawiManagementTab(),
           ],
         ),
       ),

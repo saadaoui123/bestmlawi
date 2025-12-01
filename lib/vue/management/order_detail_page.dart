@@ -7,6 +7,11 @@ import 'package:projet_best_mlewi/model/livreur.dart';
 import 'package:intl/intl.dart';
 import 'package:projet_best_mlewi/vue/management/assign_dialogs.dart';
 
+// --- DÉBUT DE LA CORRECTION ---
+// Importer le fichier central pour les statuts
+import 'package:projet_best_mlewi/utils/status_utils.dart';
+// --- FIN DE LA CORRECTION ---
+
 class ManagementOrderDetailPage extends StatelessWidget {
   final Commande order;
 
@@ -78,11 +83,15 @@ class ManagementOrderDetailPage extends StatelessWidget {
                 Container(
                   padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
                   decoration: BoxDecoration(
-                    color: _getStatusColor(order.status),
+                    // --- CORRECTION ---
+                    // On utilise la fonction centralisée
+                    color: getStatusColor(order.status),
                     borderRadius: BorderRadius.circular(20),
                   ),
                   child: Text(
-                    _getStatusText(order.status),
+                    // --- CORRECTION ---
+                    // On utilise la fonction centralisée
+                    getStatusText(order.status),
                     style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
                   ),
                 ),
@@ -159,15 +168,16 @@ class ManagementOrderDetailPage extends StatelessWidget {
                   contentPadding: EdgeInsets.zero,
                   leading: ClipRRect(
                     borderRadius: BorderRadius.circular(8),
-                    child: item['image'] != null
-                        ? Image.network(
-                            item['image'],
-                            width: 50,
-                            height: 50,
-                            fit: BoxFit.cover,
-                            errorBuilder: (c, e, s) => Container(color: Colors.grey[200], width: 50, height: 50),
-                          )
-                        : Container(color: Colors.grey[200], width: 50, height: 50),
+                    // Correction de l'affichage de l'image
+                    child: (item['image'] as String?)?.isNotEmpty == true
+                        ? Image.asset(
+                      item['image'],
+                      width: 50,
+                      height: 50,
+                      fit: BoxFit.cover,
+                      errorBuilder: (c, e, s) => Container(color: Colors.grey[200], width: 50, height: 50, child: const Icon(Icons.fastfood, color: Colors.grey)),
+                    )
+                        : Container(color: Colors.grey[200], width: 50, height: 50, child: const Icon(Icons.fastfood, color: Colors.grey)),
                   ),
                   title: Text(item['name'] ?? 'Produit'),
                   subtitle: Text('${item['price']} DT x ${item['quantity']}'),
@@ -255,7 +265,7 @@ class ManagementOrderDetailPage extends StatelessWidget {
               _buildInfoRow('TopMlawi', 'ID: ${order.topMlawiId}')
             else
               const Text('Non affectée', style: TextStyle(color: Colors.red)),
-            
+
             const SizedBox(height: 16),
             Row(
               children: [
@@ -306,43 +316,12 @@ class ManagementOrderDetailPage extends StatelessWidget {
     );
   }
 
-  Color _getStatusColor(String status) {
-    switch (status.toLowerCase()) {
-      case 'pending':
-        return Colors.orange;
-      case 'confirmed':
-        return Colors.blue;
-      case 'assigned_to_point':
-        return Colors.purple;
-      case 'assigned_to_driver':
-        return Colors.green;
-      case 'delivered':
-        return Colors.grey;
-      case 'cancelled':
-        return Colors.red;
-      default:
-        return Colors.grey;
-    }
-  }
-
-  String _getStatusText(String status) {
-    switch (status.toLowerCase()) {
-      case 'pending':
-        return 'En attente';
-      case 'confirmed':
-        return 'Confirmée';
-      case 'assigned_to_point':
-        return 'Au point de vente';
-      case 'assigned_to_driver':
-        return 'En livraison';
-      case 'delivered':
-        return 'Livrée';
-      case 'cancelled':
-        return 'Annulée';
-      default:
-        return status;
-    }
-  }
+  // --- DÉBUT DE LA CORRECTION ---
+  // Ces fonctions sont maintenant supprimées car elles sont centralisées
+  // dans lib/utils/status_utils.dart
+  // Color _getStatusColor(String status) { ... }
+  // String _getStatusText(String status) { ... }
+  // --- FIN DE LA CORRECTION ---
 
   void _showAssignTopMlawiDialog(BuildContext context, Commande order) {
     showDialog(

@@ -5,6 +5,7 @@ import 'package:projet_best_mlewi/model/commande.dart';
 import 'package:intl/intl.dart';
 import 'package:projet_best_mlewi/vue/management/assign_dialogs.dart';
 import 'order_detail_page.dart';
+import 'package:projet_best_mlewi/utils/status_utils.dart'; // IMPORTANT : Importer
 
 class OrdersManagementTab extends StatefulWidget {
   const OrdersManagementTab({super.key});
@@ -39,24 +40,30 @@ class _OrdersManagementTabState extends State<OrdersManagementTab> {
             if (snapshot.connectionState == ConnectionState.waiting) {
               return const Center(child: CircularProgressIndicator());
             }
-
             if (snapshot.hasError) {
               return Center(child: Text('Erreur: ${snapshot.error}'));
             }
 
             final allOrders = snapshot.data ?? [];
+            allOrders.sort((a, b) => b.orderDate.compareTo(a.orderDate));
 
-            // Filter orders
-            final pendingOrders = allOrders.where((o) => 
-              ['pending', 'confirmed'].contains(o.status.toLowerCase())
+            // CORRIGÉ : Filtrage avec les constantes
+            final pendingOrders = allOrders.where((o) =>
+                [OrderStatus.pending, OrderStatus.confirmed].contains(o.status.toLowerCase())
             ).toList();
 
-            final activeOrders = allOrders.where((o) => 
-              ['assigned_to_driver', 'assigned_to_point', 'preparing', 'delivering'].contains(o.status.toLowerCase())
+            final activeOrders = allOrders.where((o) =>
+                [
+                  OrderStatus.assignedToPoint,
+                  OrderStatus.assignedToDriver,
+                  OrderStatus.preparing,
+                  OrderStatus.readyForDelivery,
+                  OrderStatus.delivering
+                ].contains(o.status.toLowerCase())
             ).toList();
 
-            final historyOrders = allOrders.where((o) => 
-              ['delivered', 'cancelled'].contains(o.status.toLowerCase())
+            final historyOrders = allOrders.where((o) =>
+                [OrderStatus.delivered, OrderStatus.cancelled].contains(o.status.toLowerCase())
             ).toList();
 
             return TabBarView(
@@ -80,155 +87,146 @@ class _OrdersManagementTabState extends State<OrdersManagementTab> {
           children: [
             Icon(Icons.assignment_outlined, size: 64, color: Colors.grey[300]),
             const SizedBox(height: 16),
-            const Text(
-              'Aucune commande',
-              style: TextStyle(fontSize: 16, color: Colors.grey),
-            ),
+            const Text('Aucune commande dans cette catégorie', style: TextStyle(fontSize: 16, color: Colors.grey)),
           ],
         ),
       );
     }
-
     return ListView.builder(
       padding: const EdgeInsets.all(16),
       itemCount: orders.length,
-      itemBuilder: (context, index) {
-        final order = orders[index];
-        return _buildOrderCard(context, order);
-      },
+      itemBuilder: (context, index) => _buildOrderCard(context, orders[index]),
     );
   }
 
   Widget _buildOrderCard(BuildContext context, Commande order) {
+    final orderService = Provider.of<OrderService>(context, listen: false);
+
     return Card(
       margin: const EdgeInsets.only(bottom: 16),
       elevation: 2,
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-      child: InkWell(
-        onTap: () {
-          Navigator.push(
-            context,
-            MaterialPageRoute(
-              builder: (context) => ManagementOrderDetailPage(order: order),
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            InkWell(
+              onTap: () {
+                Navigator.push(context, MaterialPageRoute(builder: (context) => ManagementOrderDetailPage(order: order)));
+              },
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Text('#${order.id?.substring(0, 8) ?? "N/A"}', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                        decoration: BoxDecoration(
+                          color: getStatusColor(order.status), // CORRIGÉ
+                          borderRadius: BorderRadius.circular(20),
+                        ),
+                        child: Text(
+                          getStatusText(order.status), // CORRIGÉ
+                          style: const TextStyle(color: Colors.white, fontSize: 12),
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 8),
+                  Text('${order.clientFirstName} ${order.clientName}', style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w500)),
+                  const SizedBox(height: 4),
+                  Row(
+                    children: [
+                      const Icon(Icons.access_time, size: 14, color: Colors.grey),
+                      const SizedBox(width: 4),
+                      Text(DateFormat('dd/MM HH:mm').format(order.orderDate), style: const TextStyle(color: Colors.grey, fontSize: 13)),
+                      const SizedBox(width: 16),
+                      const Icon(Icons.shopping_bag_outlined, size: 14, color: Colors.grey),
+                      const SizedBox(width: 4),
+                      Text('${order.items.length} articles', style: const TextStyle(color: Colors.grey, fontSize: 13)),
+                    ],
+                  ),
+                  const SizedBox(height: 12),
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Text('${order.totalAmount.toStringAsFixed(2)} DT', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16, color: Theme.of(context).primaryColor)),
+                      const Icon(Icons.arrow_forward_ios, size: 16, color: Colors.grey),
+                    ],
+                  ),
+                ],
+              ),
             ),
-          );
-        },
-        borderRadius: BorderRadius.circular(12),
-        child: Padding(
-          padding: const EdgeInsets.all(16),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  Text(
-                    '#${order.id?.substring(0, 8) ?? "N/A"}',
-                    style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
-                  ),
-                  Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                    decoration: BoxDecoration(
-                      color: _getStatusColor(order.status),
-                      borderRadius: BorderRadius.circular(20),
-                    ),
-                    child: Text(
-                      _getStatusText(order.status),
-                      style: const TextStyle(color: Colors.white, fontSize: 12),
-                    ),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 8),
-              Text(
-                '${order.clientFirstName} ${order.clientName}',
-                style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w500),
-              ),
-              const SizedBox(height: 4),
-              Row(
-                children: [
-                  const Icon(Icons.access_time, size: 14, color: Colors.grey),
-                  const SizedBox(width: 4),
-                  Text(
-                    DateFormat('dd/MM HH:mm').format(order.orderDate),
-                    style: const TextStyle(color: Colors.grey, fontSize: 13),
-                  ),
-                  const SizedBox(width: 16),
-                  const Icon(Icons.shopping_bag_outlined, size: 14, color: Colors.grey),
-                  const SizedBox(width: 4),
-                  Text(
-                    '${order.items.length} articles',
-                    style: const TextStyle(color: Colors.grey, fontSize: 13),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 12),
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  Text(
-                    '${order.totalAmount.toStringAsFixed(2)} DT',
-                    style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16, color: Colors.amber[800]),
-                  ),
-                  const Icon(Icons.arrow_forward_ios, size: 16, color: Colors.grey),
-                ],
-              ),
-            ],
-          ),
+            const Divider(height: 24),
+            _buildActionButtons(context, order, orderService),
+          ],
         ),
       ),
     );
   }
 
-  Color _getStatusColor(String status) {
-    switch (status.toLowerCase()) {
-      case 'pending':
-        return Colors.orange;
-      case 'confirmed':
-        return Colors.blue;
-      case 'assigned_to_point':
-        return Colors.purple;
-      case 'assigned_to_driver':
-        return Colors.green;
-      case 'delivered':
-        return Colors.grey;
-      case 'cancelled':
-        return Colors.red;
+  Widget _buildActionButtons(BuildContext context, Commande order, OrderService orderService) {
+    // CORRIGÉ : Utilise les constantes partout
+    switch (order.status.toLowerCase()) {
+      case OrderStatus.pending:
+        return Row(
+          mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+          children: [
+            ElevatedButton.icon(
+              icon: const Icon(Icons.check, size: 16),
+              label: const Text('Confirmer'),
+              style: ElevatedButton.styleFrom(backgroundColor: Colors.green),
+              onPressed: () => orderService.updateOrderStatus(order.id!, OrderStatus.confirmed),
+            ),
+            TextButton.icon(
+              icon: const Icon(Icons.cancel, size: 16),
+              label: const Text('Annuler'),
+              style: TextButton.styleFrom(foregroundColor: Colors.red),
+              onPressed: () => orderService.updateOrderStatus(order.id!, OrderStatus.cancelled),
+            ),
+          ],
+        );
+      case OrderStatus.confirmed:
+        return Row(
+          mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+          children: [
+            ElevatedButton.icon(
+              icon: const Icon(Icons.store, size: 16),
+              label: const Text('Assigner (Point)'),
+              onPressed: () => _showAssignTopMlawiDialog(context, order),
+            ),
+            ElevatedButton.icon(
+              icon: const Icon(Icons.delivery_dining, size: 16),
+              label: const Text('Assigner (Livreur)'),
+              onPressed: () => _showAssignLivreurDialog(context, order),
+            ),
+          ],
+        );
+      case OrderStatus.readyForDelivery:
+        return Center(
+          child: ElevatedButton.icon(
+            icon: const Icon(Icons.delivery_dining, size: 16),
+            label: const Text('Assigner un Livreur'),
+            onPressed: () => _showAssignLivreurDialog(context, order),
+          ),
+        );
       default:
-        return Colors.grey;
+        return const Center(child: Text('Aucune action requise', style: TextStyle(color: Colors.grey)));
     }
   }
 
-  String _getStatusText(String status) {
-    switch (status.toLowerCase()) {
-      case 'pending':
-        return 'En attente';
-      case 'confirmed':
-        return 'Confirmée';
-      case 'assigned_to_point':
-        return 'Au point';
-      case 'assigned_to_driver':
-        return 'En livraison';
-      case 'delivered':
-        return 'Livrée';
-      case 'cancelled':
-        return 'Annulée';
-      default:
-        return status;
-    }
-  }
+  // SUPPRIMÉ : Ces fonctions sont maintenant dans status_utils.dart
+  // Color _getStatusColor(String status) { ... }
+  // String _getStatusText(String status) { ... }
 
   void _showAssignTopMlawiDialog(BuildContext context, Commande order) {
-    showDialog(
-      context: context,
-      builder: (context) => AssignTopMlawiDialog(order: order),
-    );
+    showDialog(context: context, builder: (context) => AssignTopMlawiDialog(order: order));
   }
 
   void _showAssignLivreurDialog(BuildContext context, Commande order) {
-    showDialog(
-      context: context,
-      builder: (context) => AssignLivreurDialog(order: order),
-    );
+    showDialog(context: context, builder: (context) => AssignLivreurDialog(order: order));
   }
 }

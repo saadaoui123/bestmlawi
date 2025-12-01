@@ -43,6 +43,7 @@ class MyApp extends StatelessWidget {
         ChangeNotifierProvider(create: (_) => LivreurService()),
         ChangeNotifierProvider(create: (_) => UserService()),
         ChangeNotifierProvider(create: (_) => NotificationService()),
+
         Provider(create: (_) => AuthService()),
       ],
       child: Consumer<SettingsService>(

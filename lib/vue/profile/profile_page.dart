@@ -1,10 +1,15 @@
+// lib/vue/profile/profile_page.dart
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:projet_best_mlewi/service/auth_service.dart';
+import 'package:provider/provider.dart';
 
 class ProfilePage extends StatelessWidget {
   const ProfilePage({super.key});
 
   Future<void> _handleLogout(BuildContext context) async {
+    // ... (votre code de déconnexion est correct)
     try {
       await FirebaseAuth.instance.signOut();
       if (context.mounted) {
@@ -25,9 +30,9 @@ class ProfilePage extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final user = FirebaseAuth.instance.currentUser;
-    
-    // If not logged in, show login prompt
+
     if (user == null) {
+      // ... (votre code pour utilisateur non connecté est correct)
       return Scaffold(
         body: Center(
           child: Column(
@@ -59,6 +64,7 @@ class ProfilePage extends StatelessWidget {
       body: SingleChildScrollView(
         child: Column(
           children: [
+            // ... (votre en-tête de profil est correct)
             Container(
               padding: const EdgeInsets.only(top: 60, bottom: 30, left: 20, right: 20),
               decoration: BoxDecoration(
@@ -71,7 +77,7 @@ class ProfilePage extends StatelessWidget {
                     radius: 40,
                     backgroundColor: Colors.white,
                     backgroundImage: user.photoURL != null ? NetworkImage(user.photoURL!) : null,
-                    child: user.photoURL == null 
+                    child: user.photoURL == null
                         ? const Icon(Icons.person, size: 40, color: Colors.grey)
                         : null,
                   ),
@@ -107,10 +113,31 @@ class ProfilePage extends StatelessWidget {
               padding: const EdgeInsets.all(20),
               child: Column(
                 children: [
+                  // --- DÉBUT DES MODIFICATIONS ---
+                  // StreamBuilder pour vérifier le rôle de l'utilisateur
+                  StreamBuilder<DocumentSnapshot>(
+                    stream: FirebaseFirestore.instance.collection('users').doc(user.uid).snapshots(),
+                    builder: (context, snapshot) {
+                      if (!snapshot.hasData) {
+                        return const SizedBox.shrink(); // Ne rien afficher pendant le chargement
+                      }
+                      final data = snapshot.data!.data() as Map<String, dynamic>?;
+                      final role = data?['role'] ?? 'client';
+
+                      // Affiche l'interrupteur seulement si l'utilisateur est un livreur
+                      if (role == 'livreur') {
+                        final isAvailable = data?['isAvailable'] ?? false;
+                        return _buildAvailabilityToggle(context, isAvailable);
+                      }
+                      return const SizedBox.shrink(); // Ne rien afficher pour les autres rôles
+                    },
+                  ),
+                  // --- FIN DES MODIFICATIONS ---
+
                   _buildProfileItem(
                     context,
                     icon: Icons.person_outline,
-                    title: 'Mon Profil',
+                    title: 'Modifier Mon Profil',
                     onTap: () => Navigator.of(context).pushNamed('/profile/edit'),
                   ),
                   _buildProfileItem(
@@ -118,27 +145,9 @@ class ProfilePage extends StatelessWidget {
                     icon: Icons.shopping_bag_outlined,
                     title: 'Mes Commandes',
                     onTap: () {
-                      // Pop to home and user can navigate to Orders tab
                       Navigator.of(context).popUntil((route) => route.isFirst);
                     },
                   ),
-                  _buildProfileItem(
-                    context,
-                    icon: Icons.location_on_outlined,
-                    title: 'Mes Adresses',
-                    onTap: () => Navigator.of(context).pushNamed('/profile/addresses'),
-                  ),
-                  _buildProfileItem(
-                    context,
-                    icon: Icons.credit_card_outlined,
-                    title: 'Moyens de Paiement',
-                    onTap: () {
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        const SnackBar(content: Text('Paiement en espèces à la livraison')),
-                      );
-                    },
-                  ),
-                  const SizedBox(height: 20),
                   _buildProfileItem(
                     context,
                     icon: Icons.settings_outlined,
@@ -175,12 +184,51 @@ class ProfilePage extends StatelessWidget {
     );
   }
 
+  // --- NOUVEAU WIDGET POUR LA DISPONIBILITÉ ---
+  Widget _buildAvailabilityToggle(BuildContext context, bool isAvailable) {
+    final authService = Provider.of<AuthService>(context, listen: false);
+    return Container(
+      margin: const EdgeInsets.only(bottom: 16),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(16),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.05),
+            blurRadius: 10,
+            offset: const Offset(0, 4),
+          ),
+        ],
+      ),
+      child: SwitchListTile(
+        title: const Text('Je suis disponible', style: TextStyle(fontWeight: FontWeight.bold)),
+        value: isAvailable,
+        onChanged: (value) async {
+          try {
+            await authService.updateUserAvailability(value);
+          } catch (e) {
+            if (context.mounted) {
+              ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(content: Text('Impossible de mettre à jour le statut')),
+              );
+            }
+          }
+        },
+        secondary: Icon(
+          isAvailable ? Icons.check_circle : Icons.cancel,
+          color: isAvailable ? Colors.green : Colors.red,
+        ),
+      ),
+    );
+  }
+
+  // ... (votre méthode _buildProfileItem reste inchangée)
   Widget _buildProfileItem(
-    BuildContext context, {
-    required IconData icon,
-    required String title,
-    required VoidCallback onTap,
-  }) {
+      BuildContext context, {
+        required IconData icon,
+        required String title,
+        required VoidCallback onTap,
+      }) {
     return Container(
       margin: const EdgeInsets.only(bottom: 16),
       decoration: BoxDecoration(

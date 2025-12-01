@@ -17,7 +17,32 @@ class UserService extends ChangeNotifier {
             .map((doc) => User.fromFirestore(doc))
             .toList());
   }
+  Future<void> createOrUpdateUserData(String userId, Map<String, dynamic> data) async {
+    try {
+      // Utilisation de .set() pour garantir la création du document.
+      // SetOptions(merge: true) est une bonne pratique : si le document existe,
+      // on met à jour les champs sans écraser les autres.
+      await _db.collection('users').doc(userId).set(data, SetOptions(merge: true));
+      print("Données utilisateur créées/mises à jour avec succès pour l'ID: $userId");
+      notifyListeners();
+    } catch (e) {
+      print("Erreur lors de la création/mise à jour des données utilisateur : $e");
+      rethrow; // Relance l'erreur pour que l'UI puisse la gérer
+    }
+  }
 
+  /// Mettre à jour des données existantes pour un utilisateur.
+  /// Lève une erreur si le document n'existe pas.
+  Future<void> updateUserData(String userId, Map<String, dynamic> data) async {
+    try {
+      await _db.collection(_collection).doc(userId).update(data);
+      print("Données utilisateur mises à jour avec succès pour l'ID: $userId");
+      notifyListeners();
+    } catch (e) {
+      print("Erreur lors de la mise à jour des données utilisateur : $e");
+      rethrow; // Relance l'erreur pour que l'UI puisse la gérer
+    }
+  }
   /// Créer un utilisateur (Client, Collaborateur, etc.)
   Future<void> createUser(User user) async {
     try {
@@ -72,7 +97,17 @@ class UserService extends ChangeNotifier {
       print("Erreur lors de la mise à jour de l'utilisateur : $e");
     }
   }
-  
+  Future<void> updateUserDataa(String userId, Map<String, dynamic> data) async {
+    try {
+      await _db.collection(_collection).doc(userId).update(data);
+      print("Données utilisateur mises à jour avec succès pour l'ID: $userId");
+      notifyListeners();
+    } catch (e) {
+      print("Erreur lors de la mise à jour des données utilisateur : $e");
+      rethrow; // Relance l'erreur pour que l'UI puisse la gérer
+    }
+  }
+
   Future<void> createUserWithUid(User user, String uid) async {
     try {
       await _db.collection(User.collection).doc(uid).set(user.toJson());
@@ -82,7 +117,7 @@ class UserService extends ChangeNotifier {
       print("Erreur lors de la création de l'utilisateur : $e");
     }
   }
-  
+
   // Update user role
   Future<void> updateUserRole(String userId, String newRole) async {
     try {

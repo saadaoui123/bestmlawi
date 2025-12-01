@@ -1,7 +1,15 @@
+// lib/vue/management/add_collaborator_dialog.dart
 import 'package:flutter/material.dart';
-// Importez les packages nécessaires pour Auth et Firestore
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:projet_best_mlewi/model/top_mlawi.dart';
+import 'package:projet_best_mlewi/service/top_mlawi_service.dart';
+import 'package:provider/provider.dart';
+
+// AJOUTS NÉCESSAIRES
+import 'package:projet_best_mlewi/service/auth_service.dart';
+import 'package:projet_best_mlewi/service/user.service.dart';
+import 'package:firebase_core/firebase_core.dart';
 
 class AddCollaboratorDialog extends StatefulWidget {
   const AddCollaboratorDialog({super.key});
@@ -15,62 +23,81 @@ class _AddCollaboratorDialogState extends State<AddCollaboratorDialog> {
   final _emailController = TextEditingController();
   final _firstNameController = TextEditingController();
   final _lastNameController = TextEditingController();
-  // Ajout du contrôleur pour le mot de passe
-  final _passwordController = TextEditingController();
+
+  String? _selectedTopMlawiId;
   bool _isLoading = false;
+  bool _hasTopMlawiPoints = false;
 
   @override
   void dispose() {
     _emailController.dispose();
     _firstNameController.dispose();
     _lastNameController.dispose();
-    _passwordController.dispose(); // Ne pas oublier de le disposer
     super.dispose();
   }
 
-  // --- VERSION SANS CLOUD FUNCTIONS ---
   Future<void> _createCollaborator() async {
     if (!_formKey.currentState!.validate()) {
       return;
     }
+
     setState(() => _isLoading = true);
 
+    final authService = Provider.of<AuthService>(context, listen: false);
+    final userService = Provider.of<UserService>(context, listen: false);
+    final email = _emailController.text.trim();
+
+    const String secondaryAppName = 'userCreationApp';
+    FirebaseApp? secondaryApp;
+
     try {
-      // Étape 1 : Créer un compte utilisateur dans Firebase Auth
-      final UserCredential userCredential = await FirebaseAuth.instance.createUserWithEmailAndPassword(
-        email: _emailController.text.trim(),
-        password: _passwordController.text.trim(),
+      secondaryApp = await Firebase.initializeApp(
+        name: secondaryAppName,
+        options: Firebase.app().options,
+      );
+
+      final String randomPassword = FirebaseFirestore.instance.collection('temp').doc().id;
+
+      final UserCredential userCredential = await FirebaseAuth.instanceFor(app: secondaryApp)
+          .createUserWithEmailAndPassword(
+        email: email,
+        password: randomPassword,
       );
 
       final User? newUser = userCredential.user;
 
       if (newUser != null) {
-        // Étape 2 : Envoyer l'email de vérification au nouveau collaborateur
-        await newUser.sendEmailVerification();
+        // Délai pour assurer la synchronisation avec le backend Firebase
+        await Future.delayed(const Duration(seconds: 1));
 
-        // Étape 3 : Créer le document utilisateur dans Firestore avec le rôle 'collaborateur'
-        await FirebaseFirestore.instance.collection('users').doc(newUser.uid).set({
+        // --- DÉBUT DE LA CORRECTION ---
+        // On appelle la nouvelle méthode qui utilise .set() pour CRÉER le document.
+        await userService.createOrUpdateUserData(newUser.uid, {
+          // --- FIN DE LA CORRECTION ---
           'uid': newUser.uid,
-          'email': _emailController.text.trim(),
+          'email': email,
           'firstName': _firstNameController.text.trim(),
           'lastName': _lastNameController.text.trim(),
-          'role': 'collaborateur', // Rôle par défaut
+          'role': 'collaborateur',
           'createdAt': FieldValue.serverTimestamp(),
+          'topMlawiId': _selectedTopMlawiId,
+          'isAvailable': false,
+          'activeOrders': 0,
         });
+
+        await authService.sendPasswordResetEmail(email);
 
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('Collaborateur créé. Un email de confirmation a été envoyé.')),
+            const SnackBar(content: Text("Collaborateur invité. Un email a été envoyé.")),
           );
-          Navigator.of(context).pop(); // Fermer le dialogue
+          Navigator.of(context).pop();
         }
       }
     } on FirebaseAuthException catch (e) {
       if (mounted) {
         String errorMessage = "Une erreur est survenue.";
-        if (e.code == 'weak-password') {
-          errorMessage = 'Le mot de passe fourni est trop faible.';
-        } else if (e.code == 'email-already-in-use') {
+        if (e.code == 'email-already-in-use') {
           errorMessage = 'Un compte existe déjà pour cet email.';
         } else if (e.code == 'invalid-email') {
           errorMessage = "L'adresse email n'est pas valide.";
@@ -86,6 +113,9 @@ class _AddCollaboratorDialogState extends State<AddCollaboratorDialog> {
         );
       }
     } finally {
+      if (secondaryApp != null) {
+        await secondaryApp.delete();
+      }
       if (mounted) {
         setState(() => _isLoading = false);
       }
@@ -94,8 +124,10 @@ class _AddCollaboratorDialogState extends State<AddCollaboratorDialog> {
 
   @override
   Widget build(BuildContext context) {
+    final topMlawiService = Provider.of<TopMlawiService>(context, listen: false);
+
     return AlertDialog(
-      title: const Text('Ajouter un collaborateur'),
+      title: const Text('Inviter un collaborateur'),
       content: Form(
         key: _formKey,
         child: SingleChildScrollView(
@@ -107,30 +139,72 @@ class _AddCollaboratorDialogState extends State<AddCollaboratorDialog> {
                 decoration: const InputDecoration(labelText: 'Prénom'),
                 validator: (value) => value!.isEmpty ? 'Le prénom est requis' : null,
               ),
-              const SizedBox(height: 8),
+              const SizedBox(height: 12),
               TextFormField(
                 controller: _lastNameController,
                 decoration: const InputDecoration(labelText: 'Nom'),
                 validator: (value) => value!.isEmpty ? 'Le nom est requis' : null,
               ),
-              const SizedBox(height: 8),
+              const SizedBox(height: 12),
               TextFormField(
                 controller: _emailController,
                 decoration: const InputDecoration(labelText: 'Email'),
                 keyboardType: TextInputType.emailAddress,
-                validator: (value) => value!.isEmpty || !value!.contains('@') ? 'Entrez un email valide' : null,
+                validator: (value) => value!.isEmpty || !value.contains('@') ? 'Entrez un email valide' : null,
               ),
-              const SizedBox(height: 8),
-              // Champ pour le mot de passe initial
-              TextFormField(
-                controller: _passwordController,
-                decoration: const InputDecoration(labelText: 'Mot de passe temporaire'),
-                obscureText: true,
-                validator: (value) {
-                  if (value == null || value.length < 6) {
-                    return 'Le mot de passe doit faire au moins 6 caractères';
+              const SizedBox(height: 20),
+              StreamBuilder<List<TopMlawi>>(
+                stream: topMlawiService.getAllTopMlawi(),
+                builder: (context, snapshot) {
+                  if (snapshot.connectionState == ConnectionState.waiting) {
+                    return const Center(child: Padding(
+                      padding: EdgeInsets.all(8.0),
+                      child: CircularProgressIndicator(),
+                    ));
                   }
-                  return null;
+                  final hasData = snapshot.hasData && snapshot.data!.isNotEmpty;
+                  WidgetsBinding.instance.addPostFrameCallback((_) {
+                    if (mounted && _hasTopMlawiPoints != hasData) {
+                      setState(() {
+                        _hasTopMlawiPoints = hasData;
+                      });
+                    }
+                  });
+                  if (!hasData) {
+                    return Container(
+                      padding: const EdgeInsets.all(12),
+                      decoration: BoxDecoration(
+                        color: Colors.red.withOpacity(0.1),
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      child: const Text(
+                        "Aucun point de vente n'a été créé. Veuillez en ajouter un avant de créer un collaborateur.",
+                        style: TextStyle(color: Colors.red),
+                        textAlign: TextAlign.center,
+                      ),
+                    );
+                  }
+                  final topMlawiPoints = snapshot.data!;
+                  return DropdownButtonFormField<String>(
+                    value: _selectedTopMlawiId,
+                    hint: const Text('Sélectionner un point de vente'),
+                    decoration: const InputDecoration(
+                      labelText: 'Point de Vente',
+                      border: OutlineInputBorder(),
+                    ),
+                    items: topMlawiPoints.map((point) {
+                      return DropdownMenuItem<String>(
+                        value: point.id,
+                        child: Text(point.name),
+                      );
+                    }).toList(),
+                    onChanged: (value) {
+                      setState(() {
+                        _selectedTopMlawiId = value;
+                      });
+                    },
+                    validator: (value) => value == null ? 'Veuillez sélectionner un point de vente' : null,
+                  );
                 },
               ),
             ],
@@ -143,10 +217,10 @@ class _AddCollaboratorDialogState extends State<AddCollaboratorDialog> {
           child: const Text('Annuler'),
         ),
         _isLoading
-            ? const CircularProgressIndicator()
+            ? const Padding(padding: EdgeInsets.all(8.0), child: CircularProgressIndicator())
             : ElevatedButton(
-          onPressed: _createCollaborator,
-          child: const Text('Créer'),
+          onPressed: _hasTopMlawiPoints ? _createCollaborator : null,
+          child: const Text('Inviter'),
         ),
       ],
     );

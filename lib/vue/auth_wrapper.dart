@@ -29,8 +29,11 @@ class AuthWrapper extends StatelessWidget {
           return RoleDispatcher(user: snapshot.data!);
         }
 
-        // Si l'utilisateur n'est pas connecté
-        return const LoginPage();
+        // --- DÉBUT DE LA MODIFICATION ---
+        // Si l'utilisateur n'est pas connecté, on affiche l'AppShell.
+        // L'AppShell gérera l'affichage des boutons de connexion/profil.
+        return const AppShell();
+        // --- FIN DE LA MODIFICATION ---
       },
     );
   }
@@ -43,9 +46,13 @@ class RoleDispatcher extends StatelessWidget {
   Future<String> _getUserRole() async {
     final doc = await FirebaseFirestore.instance.collection('users').doc(user.uid).get();
     if (doc.exists) {
-      return doc.data()?['role'] ?? 'client';
+      // CORRECTION : S'assurer que le rôle n'est pas null
+      final data = doc.data();
+      if (data != null && data.containsKey('role')) {
+        return data['role'] ?? 'client';
+      }
     }
-    // Si le document n'existe pas, on considère que c'est un client.
+    // Si le document n'existe pas ou n'a pas de rôle, on considère que c'est un client.
     return 'client';
   }
 
@@ -57,6 +64,13 @@ class RoleDispatcher extends StatelessWidget {
         // En attente de la récupération du rôle
         if (snapshot.connectionState == ConnectionState.waiting) {
           return const Scaffold(body: Center(child: CircularProgressIndicator()));
+        }
+
+        // En cas d'erreur, on redirige vers l'AppShell en mode déconnecté pour plus de sécurité
+        if (snapshot.hasError) {
+          // Log l'erreur pour le débogage
+          print("Erreur de récupération du rôle: ${snapshot.error}");
+          return const AppShell();
         }
 
         if (snapshot.hasData) {
@@ -74,12 +88,12 @@ class RoleDispatcher extends StatelessWidget {
             case 'coordinateur':
               return const CoordinateurDashboardPage();
             default:
-              return const AppShell(); // Fallback pour les clients
+              return const AppShell(); // Fallback pour les clients ou rôles inconnus
           }
         }
 
-        // En cas d'erreur ou si pas de données, on va à la page de connexion
-        return const LoginPage();
+        // Si pas de données (cas peu probable mais sécurisant), on affiche l'AppShell en mode déconnecté.
+        return const AppShell();
       },
     );
   }

@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:projet_best_mlewi/service/product_service.dart';
 import 'package:projet_best_mlewi/service/cart_service.dart';
 import 'package:provider/provider.dart';
 
@@ -36,70 +35,48 @@ class ProductCard extends StatelessWidget {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Expanded(
-              child: Stack(
-                children: [
-                  Hero(
-                    tag: 'product_${product.id}',
-                    child: ClipRRect(
-                      borderRadius: const BorderRadius.vertical(top: Radius.circular(16)),
-                      child: (product.image.isEmpty)
-                          ? Image.asset(
-                              'assets/images/placeholder.png',
-                              fit: BoxFit.cover,
-                              width: double.infinity,
-                              height: double.infinity,
-                              errorBuilder: (context, error, stackTrace) =>
-                                  Container(color: Colors.grey[200], child: const Icon(Icons.fastfood, size: 50, color: Colors.grey)),
-                            )
-                          : (product.image.startsWith('http')
-                              ? Image.network(
-                                  product.image,
-                                  fit: BoxFit.cover,
-                                  width: double.infinity,
-                                  height: double.infinity,
-                                  errorBuilder: (context, error, stackTrace) =>
-                                      Image.asset('assets/images/placeholder.png', fit: BoxFit.cover,
-                                        errorBuilder: (c, e, s) => Container(color: Colors.grey[200], child: const Icon(Icons.image_not_supported)),
-                                      ),
-                                )
-                              : Image.asset(
-                                  product.image,
-                                  fit: BoxFit.cover,
-                                  width: double.infinity,
-                                  height: double.infinity,
-                                  errorBuilder: (context, error, stackTrace) =>
-                                      Container(color: Colors.grey[200], child: const Icon(Icons.image_not_supported)),
-                                )),
-                    ),
-                  ),
-                  Positioned(
-                    top: 8,
-                    right: 8,
-                    child: Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                      decoration: BoxDecoration(
-                        color: Colors.white.withOpacity(0.9),
-                        borderRadius: BorderRadius.circular(12),
-                      ),
-                      child: Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          const Icon(Icons.star, color: Colors.amber, size: 14),
-                          const SizedBox(width: 4),
-                          Text(
-                            product.rating.toString(),
-                            style: const TextStyle(
-                              fontSize: 12,
-                              fontWeight: FontWeight.bold,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ),
-                ],
+              child: Hero(
+                tag: 'product_${product.id}',
+                child: ClipRRect(
+                  borderRadius: const BorderRadius.vertical(top: Radius.circular(16)),
+                  // --- DÉBUT DE LA CORRECTION 1 ---
+                  // On utilise `product.imageUrl` au lieu de `product.image`
+                  child: (product.imageUrl.isEmpty)
+                      ? Image.asset(
+                    'assets/images/placeholder.png',
+                    fit: BoxFit.cover,
+                    width: double.infinity,
+                    height: double.infinity,
+                    errorBuilder: (context, error, stackTrace) =>
+                        Container(color: Colors.grey[200], child: const Icon(Icons.fastfood, size: 50, color: Colors.grey)),
+                  )
+                      : (product.imageUrl.startsWith('http')
+                      ? Image.network(
+                    product.imageUrl, // Correction ici
+                    fit: BoxFit.cover,
+                    width: double.infinity,
+                    height: double.infinity,
+                    errorBuilder: (context, error, stackTrace) =>
+                        Image.asset('assets/images/placeholder.png', fit: BoxFit.cover,
+                          errorBuilder: (c, e, s) => Container(color: Colors.grey[200], child: const Icon(Icons.image_not_supported)),
+                        ),
+                  )
+                      : Image.asset(
+                    product.imageUrl, // Correction ici
+                    fit: BoxFit.cover,
+                    width: double.infinity,
+                    height: double.infinity,
+                    errorBuilder: (context, error, stackTrace) =>
+                        Container(color: Colors.grey[200], child: const Icon(Icons.image_not_supported)),
+                  )),
+                  // --- FIN DE LA CORRECTION 1 ---
+                ),
               ),
             ),
+            // --- DÉBUT DE LA CORRECTION 2 ---
+            // Le widget Stack qui contenait l'étoile de rating est supprimé
+            // car le champ `rating` n'existe plus dans le modèle Product.
+            // --- FIN DE LA CORRECTION 2 ---
             Padding(
               padding: const EdgeInsets.all(12.0),
               child: Column(
@@ -108,12 +85,13 @@ class ProductCard extends StatelessWidget {
                   Text(
                     product.name,
                     style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                          fontWeight: FontWeight.bold,
-                        ),
+                      fontWeight: FontWeight.bold,
+                    ),
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
                   ),
                   const SizedBox(height: 4),
+                  // Le champ description est bien dans le modèle, pas de changement ici.
                   Text(
                     product.description,
                     style: Theme.of(context).textTheme.bodySmall,
@@ -125,6 +103,7 @@ class ProductCard extends StatelessWidget {
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
                       Text(
+                        // Le champ price est bien dans le modèle, pas de changement ici.
                         '${product.price} DT',
                         style: TextStyle(
                           fontSize: 18,
